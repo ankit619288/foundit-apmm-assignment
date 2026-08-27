@@ -1,0 +1,201 @@
+{
+  "name": "foundit APMM Automation Pipeline",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1216,
+        -32
+      ],
+      "id": "cdaedd15-cd79-44ee-b5ab-d6faad61cfd5",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "jsCode": "const { spawn } = require('child_process');\nconst fs = require('fs');\n\nconst projectDir = 'C:\\\\Users\\\\India\\\\OneDrive\\\\Desktop\\\\Foundit_APMM_Assignment';\nconst pythonExe = 'C:\\\\Program Files\\\\Python311\\\\python.exe';\nconst userSite = 'C:\\\\Users\\\\India\\\\AppData\\\\Roaming\\\\Python\\\\Python311\\\\site-packages';\nconst finalExcel = projectDir + '\\\\outputs\\\\fRL_winners.xlsx';\n\nfunction runCommand(args) {\n  return new Promise((resolve) => {\n    const child = spawn(pythonExe, args, {\n      cwd: projectDir,\n      windowsHide: true,\n      env: {\n        PYTHONPATH: userSite,\n        PYTHONUSERBASE: 'C:\\\\Users\\\\India\\\\AppData\\\\Roaming\\\\Python',\n        SystemRoot: 'C:\\\\Windows',\n        TEMP: 'C:\\\\Users\\\\India\\\\AppData\\\\Local\\\\Temp',\n        TMP: 'C:\\\\Users\\\\India\\\\AppData\\\\Local\\\\Temp'\n      }\n    });\n\n    let stdout = '';\n    let stderr = '';\n\n    child.stdout.on('data', (data) => { stdout += data.toString(); });\n    child.stderr.on('data', (data) => { stderr += data.toString(); });\n    child.on('close', (code) => { resolve({ code, output: (stdout + '\\\\n' + stderr).trim() }); });\n    child.on('error', (error) => { resolve({ code: 1, output: error.message }); });\n  });\n}\n\nconst pythonCheck = await runCommand(['-c', 'import sys; print(sys.executable); import pandas; print(pandas.__version__)']);\n\nif (pythonCheck.code !== 0) {\n  return [{ json: { workflow: 'foundit APMM n8n pipeline', status: 'Failed', reason: 'Python dependency check failed', python_check_output: pythonCheck.output, final_excel_exists: fs.existsSync(finalExcel), github_repo: 'https://github.com/ankit619288/foundit-apmm-assignment', streamlit_app: 'https://foundit-apmm.streamlit.app/' } }];\n}\n\nconst pipeline = await runCommand(['run_pipeline.py']);\nconst success = pipeline.code === 0 && pipeline.output.toLowerCase().includes('pipeline completed') && fs.existsSync(finalExcel);\n\nreturn [{\n  json: {\n    workflow: 'foundit APMM n8n pipeline',\n    status: success ? 'Success' : 'Failed',\n    pipeline_ran: pipeline.code === 0,\n    final_excel_exists: fs.existsSync(finalExcel),\n    final_excel: finalExcel,\n    github_repo: 'https://github.com/ankit619288/foundit-apmm-assignment',\n    streamlit_app: 'https://foundit-apmm.streamlit.app/',\n    python_check_output: pythonCheck.output,\n    pipeline_output: pipeline.output\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1024,
+        -32
+      ],
+      "id": "a84fba47-6876-4d93-97af-8dcd3621ea2c",
+      "name": "Run APMM Pipeline"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "943b4068-705e-4265-8af1-369a57616331",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "Success",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -880,
+        -32
+      ],
+      "id": "f187ecc9-7879-497c-af73-f542bca74ee7",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3f3375c8-8e95-4093-a403-be8fe9d2e3d3",
+              "name": "submission_status",
+              "value": "Review Needed",
+              "type": "string"
+            },
+            {
+              "id": "5837d6ab-4597-44f8-9eab-bb70d4cec0a2",
+              "name": "message",
+              "value": "APMM pipeline did not complete successfully. Please check pipeline output and required files.",
+              "type": "string"
+            },
+            {
+              "id": "3cc79686-4e7f-455f-b69c-0e8c74a8d397",
+              "name": "final_excel",
+              "value": "outputs/fRL_winners.xlsx",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -656,
+        64
+      ],
+      "id": "65cfa953-4039-49d7-892a-5b9d44be0dd9",
+      "name": "Failure Summary"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4a6b6f58-8128-473b-91b7-9623bfc7485c",
+              "name": "submission_status",
+              "value": "Ready",
+              "type": "string"
+            },
+            {
+              "id": "8605ebc7-d98d-4984-b4fd-cbc9278cfa1c",
+              "name": "message",
+              "value": "APMM pipeline completed successfully. fRL winners, notes, screenshots, GitHub repository, and Streamlit app are ready.",
+              "type": "string"
+            },
+            {
+              "id": "f5c756d3-8ea0-4313-8873-1f7313fc11b2",
+              "name": "github_repo",
+              "value": "https://github.com/ankit619288/foundit-apmm-assignment",
+              "type": "string"
+            },
+            {
+              "id": "5f76ca5a-31fe-4932-b6d7-77d9c33b509e",
+              "name": "streamlit_app",
+              "value": "https://foundit-apmm.streamlit.app/",
+              "type": "string"
+            },
+            {
+              "id": "b2f1d5c4-8c07-4388-a942-f5c5dfd59a63",
+              "name": "final_excel",
+              "value": "outputs/fRL_winners.xlsx",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -656,
+        -128
+      ],
+      "id": "c0ec9ec4-9516-4dd8-8599-8756fce4b086",
+      "name": "Success Summary"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Run APMM Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run APMM Pipeline": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Success Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Failure Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "db4e31c0-c303-4cbf-b287-429ac4081455",
+  "meta": {
+    "instanceId": "80c6ff8bb12f520e1da33cb7f055d86cfa498beb03915bf050759f48a32dd6c6"
+  },
+  "id": "g16YG3UlA43dqvsp",
+  "tags": []
+}
