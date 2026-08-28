@@ -37,6 +37,20 @@ OUTPUT_COLUMNS = [
     "End Date",
 ]
 
+REQUIRED_COLUMNS = {
+    "company_name",
+    "company_type",
+    "account_type",
+    "service_channel",
+    "login",
+    "email",
+    "PC",
+    "OC",
+    "JP",
+    "pc_start_date",
+    "pc_end_date",
+}
+
 
 def classify_user(start_date):
     if pd.isna(start_date):
@@ -54,7 +68,17 @@ def classify_user(start_date):
 
 
 def load_purchase_data():
+    if not PURCHASE_FILE.exists():
+        raise FileNotFoundError(f"Purchase input not found: {PURCHASE_FILE}")
+
     df = pd.read_excel(PURCHASE_FILE)
+
+    missing_columns = sorted(REQUIRED_COLUMNS - set(df.columns))
+    if missing_columns:
+        raise ValueError(
+            "purchase.xlsx is missing required columns: "
+            + ", ".join(missing_columns)
+        )
 
     df["start_date_internal"] = pd.to_datetime(df["pc_start_date"], errors="coerce")
     df["end_date_internal"] = pd.to_datetime(df["pc_end_date"], errors="coerce")
@@ -101,6 +125,9 @@ def apply_eligibility_rules(df):
         regex=True,
     )
 
+    # Match the supplied winner.py behavior: an account must have a valid end
+    # date on or after the reference date to be treated as active.
+    mask &= df["end_date_internal"].notna()
     mask &= df["end_date_internal"] >= REFERENCE_DATE
 
     eligible_df = df[mask].copy()
@@ -143,7 +170,11 @@ def get_category_winners(df):
     winners = []
 
     for category, metric in category_map.items():
-        top_30 = df.sort_values(metric, ascending=False).head(TOP_N_CATEGORY)
+        top_30 = df.sort_values(
+            metric,
+            ascending=False,
+            kind="mergesort",
+        ).head(TOP_N_CATEGORY)
 
         for user_type in ["New", "Existing"]:
             subset = top_30[top_30["User Type"] == user_type]
@@ -163,7 +194,11 @@ def get_mvp_winners(df):
     ].copy()
 
     mvp_df["MVP Score"] = mvp_df["PC"] + mvp_df["OC"] + mvp_df["JP"]
-    mvp_df = mvp_df.sort_values("MVP Score", ascending=False)
+    mvp_df = mvp_df.sort_values(
+        "MVP Score",
+        ascending=False,
+        kind="mergesort",
+    )
 
     winners = []
 
@@ -187,40 +222,11 @@ def get_mvp_winners(df):
 def save_method_note(cleaning_summary):
     note = f"""# fRL Winner Calculation Method Note
 
-Source file used: `purchase.xlsx`
-
-## Automated Cleaning Summary
-
-- Original rows: {cleaning_summary["original_rows"]}
-- Eligible rows after cleaning: {cleaning_summary["eligible_rows"]}
-- Removed rows: {cleaning_summary["removed_rows"]}
-
-## Rules Applied
-
-1. Removed ineligible rows where:
-   - account_type is free_trial or test_job
-   - login contains scrape, _jobs, or ftp
-   - service_channel contains scrape
-   - company_name contains immigration, ankit sharma proprietor, or freelancer
-   - pc_end_date is before 20 February 2026
-
-2. Tagged each eligible account:
-   - New: pc_start_date between 1 October 2025 and 31 January 2026
-   - Existing: all other rows, including blank start dates
-
-3. Category winners:
-   - Search Smasher: highest PC
-   - Campaign Captain: highest OC
-   - Posting Champion: highest JP
-   - Ranked eligible accounts by each metric, checked the top 30, and selected the top New and Existing account.
-
-4. MVP winners:
-   - Kept only accounts where PC > 0, OC > 0, and JP > 0
-   - MVP Score = PC + OC + JP
-   - Ranked New and Existing separately
-   - Selected top 5 from each group
-
-Note: Old-winner exclusion was not applied because no old-winners file was provided.
+- Method: Python standardized text, dates, and PC/OC/JP values, then applied every supplied Purchase eligibility rule before ranking.
+- Cleaning: {cleaning_summary["original_rows"]:,} source rows became {cleaning_summary["eligible_rows"]:,} eligible rows; {cleaning_summary["removed_rows"]:,} rows were excluded.
+- Classification: New means a start date from 1 October 2025 through 31 January 2026; all other or blank start dates are Existing.
+- Winners: each PC/OC/JP category uses the overall top 30 and selects the highest New and Existing account; MVP requires all three metrics above zero and takes the top five per user type by PC + OC + JP.
+- Anomalies/assumptions: {cleaning_summary["missing_start_dates"]:,} start dates and {cleaning_summary["missing_end_dates"]:,} end dates are blank/invalid; blank starts count as Existing, while blank ends are ineligible because active status cannot be verified, matching the supplied `winner.py`. No old-winners list was provided.
 """
     METHOD_NOTE_FILE.write_text(note, encoding="utf-8")
 
@@ -234,9 +240,15 @@ def polish_excel_file():
     header_font = Font(color="FFFFFF", bold=True)
     center = Alignment(horizontal="center", vertical="center")
     left = Alignment(horizontal="left", vertical="center")
+    wrapped_left = Alignment(
+        horizontal="left",
+        vertical="center",
+        wrap_text=True,
+    )
 
     ws.freeze_panes = "A2"
     ws.auto_filter.ref = ws.dimensions
+    ws.row_dimensions[1].height = 24
 
     for cell in ws[1]:
         cell.fill = header_fill
@@ -245,7 +257,9 @@ def polish_excel_file():
 
     for row in ws.iter_rows(min_row=2):
         for cell in row:
-            if cell.column in [4, 5, 11, 12, 13]:
+            if cell.column == 6:
+                cell.alignment = wrapped_left
+            elif cell.column in [4, 5, 11, 12, 13]:
                 cell.alignment = center
             else:
                 cell.alignment = left
@@ -267,17 +281,22 @@ def polish_excel_file():
         adjusted_width = min(max(max_length + 2, 12), 38)
         ws.column_dimensions[column_letter].width = adjusted_width
 
-    ws.column_dimensions["F"].width = 42
+    ws.column_dimensions["F"].width = 48
     ws.column_dimensions["J"].width = 34
     ws.column_dimensions["N"].width = 16
     ws.column_dimensions["O"].width = 16
+
+    for row_idx in range(2, ws.max_row + 1):
+        company_name = str(ws.cell(row=row_idx, column=6).value or "")
+        if len(company_name) > 48:
+            ws.row_dimensions[row_idx].height = 32
 
     wb.save(OUTPUT_FILE)
 
 
 def main():
-    OUTPUT_DIR.mkdir(exist_ok=True)
-    NOTES_DIR.mkdir(exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    NOTES_DIR.mkdir(parents=True, exist_ok=True)
 
     df = load_purchase_data()
     original_rows = len(df)
@@ -288,13 +307,17 @@ def main():
         "original_rows": original_rows,
         "eligible_rows": len(eligible_df),
         "removed_rows": original_rows - len(eligible_df),
+        "missing_start_dates": int(df["start_date_internal"].isna().sum()),
+        "missing_end_dates": int(df["end_date_internal"].isna().sum()),
     }
 
     category_winners = get_category_winners(eligible_df)
     mvp_winners = get_mvp_winners(eligible_df)
 
-    final_df = pd.DataFrame(category_winners + mvp_winners)
-    final_df = final_df[OUTPUT_COLUMNS]
+    final_df = pd.DataFrame(
+        category_winners + mvp_winners,
+        columns=OUTPUT_COLUMNS,
+    )
 
     final_df["MVP Rank"] = final_df["MVP Rank"].replace("", "-")
     final_df["MVP Score"] = final_df["MVP Score"].replace("", "-")

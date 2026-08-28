@@ -30,5 +30,7 @@ docker compose ps
 
 - The n8n editor must remain authenticated.
 - Do not commit `.env`, the n8n database, encryption keys, or OAuth secrets.
-- The hosted workflow export uses the `APMM_*` environment paths from `compose.yaml` and imports as inactive for safe credential setup and testing.
+- The hosted workflow uses fixed paths inside the packaged container and imports as inactive for safe credential setup and testing.
+- Code-node environment access is blocked, so workflow JavaScript cannot read the n8n encryption key or other container secrets.
+- The built-in module allow-list is intended only for this trusted workflow; keep editor access authenticated and limited to authorized operators.
 - This starter is statically validated in this repository. A live deployment still requires a server, domain, DNS, HTTPS, and OAuth configuration.

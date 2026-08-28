@@ -44,6 +44,8 @@ EXPECTED_SCREENSHOTS = [
     "n8n_weekly_schedule_settings.png",
 ]
 
+MIN_SCREENSHOT_BYTES = 100_000
+
 
 def check_required_files():
     print("\nChecking required input files...")
@@ -93,6 +95,44 @@ def check_outputs():
             f"({screenshot_count} total PNG files)"
         )
 
+    undersized_screenshots = [
+        SCREENSHOT_DIR / name
+        for name in EXPECTED_SCREENSHOTS
+        if (SCREENSHOT_DIR / name).exists()
+        and (SCREENSHOT_DIR / name).stat().st_size < MIN_SCREENSHOT_BYTES
+    ]
+    for screenshot_path in undersized_screenshots:
+        print(f"INVALID: {screenshot_path.relative_to(BASE_DIR)} is unexpectedly small")
+        missing.append(screenshot_path)
+
+    bonus_note = NOTES_DIR / "task3_bonus_analysis.md"
+    if bonus_note.exists():
+        bonus_text = bonus_note.read_text(encoding="utf-8")
+        bonus_valid = (
+            bonus_text.count("```") % 2 == 0
+            and "## Data-Backed Insights" in bonus_text
+            and "## Recommended Improvements" in bonus_text
+            and "Task 2" in bonus_text
+        )
+        if bonus_valid:
+            print("OK: Task 3 bonus analysis is complete and linked to Task 2")
+        else:
+            print("INVALID: notes/task3_bonus_analysis.md is incomplete")
+            missing.append(bonus_note)
+
+    method_note = NOTES_DIR / "frl_method_note.md"
+    if method_note.exists():
+        method_lines = [
+            line
+            for line in method_note.read_text(encoding="utf-8").splitlines()
+            if line.startswith("- ")
+        ]
+        if len(method_lines) == 5:
+            print("OK: Task 2 method note contains the requested 5 concise lines")
+        else:
+            print("INVALID: Task 2 method note must contain exactly 5 bullet lines")
+            missing.append(method_note)
+
     workflow_expectations = [
         (N8N_DIR / "foundit_apmm_n8n_workflow.json", True),
         (N8N_DIR / "foundit_apmm_n8n_workflow_hosted.json", False),
@@ -133,8 +173,31 @@ def main():
 
     check_required_files()
 
+    run_command(
+        [
+            sys.executable,
+            "-m",
+            "py_compile",
+            "src/app.py",
+            "src/talent_agent.py",
+            "src/calculate_frl_winners.py",
+            "run_pipeline.py",
+            "tests/test_core.py",
+        ]
+    )
     run_command([sys.executable, "src/calculate_frl_winners.py"])
     run_command([sys.executable, "src/talent_agent.py"])
+    run_command(
+        [
+            sys.executable,
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests",
+            "-v",
+        ]
+    )
 
     missing_outputs = check_outputs()
     if missing_outputs:

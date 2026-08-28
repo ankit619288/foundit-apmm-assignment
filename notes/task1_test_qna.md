@@ -24,6 +24,6 @@
 
 **Question:** What salary should I offer a DevOps engineer in Pune?
 
-**Answer:** The provided dataset does not include salary, CTC, compensation, notice period, or offer benchmarking data. I can only answer from the available IT/ITeS talent-supply counts.
+**Answer:** The provided dataset does not include salary, CTC, compensation, notice period, hiring cost, or offer benchmarking data. I can only answer from the available IT/ITeS talent-supply counts.
 
 **Why this is correct:** The agent avoids hallucination because salary information is outside the scope of the given dataset.

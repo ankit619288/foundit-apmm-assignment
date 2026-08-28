@@ -3,97 +3,22 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from talent_agent import (
+    agent_answer as answer_talent_question,
+    format_count,
+    load_talent_data as load_talent_dataset,
+    normalize_text as normalize,
+)
+
 BASE_DIR = Path(__file__).resolve().parents[1]
-DATA_DIR = BASE_DIR / "data"
 OUTPUT_DIR = BASE_DIR / "outputs"
 
-TALENT_FILE = DATA_DIR / "Sample_Data_for_agent.xlsx"
 FRL_FILE = OUTPUT_DIR / "fRL_winners.xlsx"
-
-ALIASES = {
-    "devops talent": "devops engineer",
-    "devops": "devops engineer",
-    "ai ml": "ai/ml engineer",
-    "ai/ml": "ai/ml engineer",
-    "ml engineer": "ai/ml engineer",
-    "machine learning": "ai/ml engineer",
-    "ai engineer": "ai/ml engineer",
-    "ml": "ai/ml engineer",
-    "data science": "data scientist",
-    "data scientists": "data scientist",
-    "cybersecurity": "cybersecurity analyst/engineer",
-    "cyber security": "cybersecurity analyst/engineer",
-    "cloud architect": "cloud architect/engineer",
-    "cloud engineer": "cloud architect/engineer",
-    "bangalore": "bengaluru",
-    "3-5y": "3-5 years",
-    "3 to 5": "3-5 years",
-    "3-5 years": "3-5 years",
-    "1-3y": "1-3 years",
-    "1 to 3": "1-3 years",
-    "0-1y": "0-1 years",
-    "5-10y": "5-10years",
-    "10-15y": "10-15 years",
-    "15y+": "15 years+",
-    "15+ years": "15 years+",
-}
-
-UNAVAILABLE_KEYWORDS = [
-    "salary", "ctc", "offer", "compensation", "pay", "package",
-    "notice period", "joining time", "available immediately", "hiring cost",
-]
-
-
-def clean_label(value):
-    if pd.isna(value):
-        return ""
-    return str(value).strip()
-
-
-def normalize(value):
-    text = clean_label(value).lower()
-    text = text.replace("–", "-").replace("—", "-")
-    for old, new in ALIASES.items():
-        text = text.replace(old, new)
-    return " ".join(text.split())
-
-
-def format_count(value):
-    value = int(value)
-    if value >= 10_000_000:
-        return f"{value / 10_000_000:.2f} Cr"
-    if value >= 1_000_000:
-        return f"{value / 1_000_000:.2f} Mn"
-    if value >= 100_000:
-        return f"{value / 1000:.0f}K"
-    return f"{value:,}"
 
 
 @st.cache_data
 def load_talent_data():
-    raw_df = pd.read_excel(TALENT_FILE, sheet_name="India - ITITeS")
-    rows = []
-
-    for _, row in raw_df.iterrows():
-        category = clean_label(row.get("Unnamed: 0"))
-        count = row.get("Count")
-
-        if not category or pd.isna(count):
-            continue
-
-        try:
-            count = int(count)
-        except Exception:
-            continue
-
-        rows.append({
-            "Category": category,
-            "Category Lower": normalize(category),
-            "Profiles": count,
-            "Profiles Display": format_count(count),
-        })
-
-    return pd.DataFrame(rows)
+    return load_talent_dataset()
 
 
 @st.cache_data
@@ -110,89 +35,8 @@ def load_frl_winners():
     return df
 
 
-def find_matches(question, talent_df):
-    q = normalize(question)
-    matches = []
-
-    for _, item in talent_df.iterrows():
-        label = item["Category Lower"]
-
-        if label and label in q:
-            matches.append(item)
-
-    return matches
-
-
-def find_single_answer(question, talent_df):
-    matches = find_matches(question, talent_df)
-
-    if matches:
-        match = sorted(matches, key=lambda x: len(x["Category"]), reverse=True)[0]
-        return (
-            f"{match['Category']} has {format_count(match['Profiles'])} profiles "
-            f"in the provided India IT/ITeS talent-supply dataset."
-        )
-
-    q = normalize(question)
-    total = talent_df[talent_df["Category Lower"] == "total profiles"]
-
-    if "total" in q and not total.empty:
-        count = total.iloc[0]["Profiles"]
-        return f"Total India IT/ITeS profiles are {format_count(count)} in the provided dataset."
-
-    return (
-        "I could not find that answer in the provided dataset. I can answer "
-        "questions about talent counts by role, city, experience band, gender, "
-        "sub-industry, and active/total profile categories available in the source file."
-    )
-
-
-def compare_answer(question, talent_df):
-    matches = find_matches(question, talent_df)
-    unique = []
-
-    for item in matches:
-        if item["Category"] not in [x["Category"] for x in unique]:
-            unique.append(item)
-
-    if len(unique) < 2:
-        return None
-
-    first = unique[0]
-    second = unique[1]
-    first_count = int(first["Profiles"])
-    second_count = int(second["Profiles"])
-    difference = abs(first_count - second_count)
-
-    if first_count >= second_count:
-        larger, smaller = first, second
-    else:
-        larger, smaller = second, first
-
-    return (
-        f"{larger['Category']} is larger than {smaller['Category']} by "
-        f"{format_count(difference)} profiles. "
-        f"{larger['Category']} has {format_count(larger['Profiles'])}, while "
-        f"{smaller['Category']} has {format_count(smaller['Profiles'])}."
-    )
-
-
 def agent_answer(question, talent_df):
-    q = normalize(question)
-
-    if any(keyword in q for keyword in UNAVAILABLE_KEYWORDS):
-        return (
-            "The provided dataset does not include salary, CTC, compensation, "
-            "notice period, hiring cost, or offer benchmarking data. I can only "
-            "answer from the available India IT/ITeS talent-supply counts."
-        )
-
-    if any(word in q for word in ["compare", "larger", "more", "vs", "versus"]):
-        answer = compare_answer(question, talent_df)
-        if answer:
-            return answer
-
-    return find_single_answer(question, talent_df)
+    return answer_talent_question(question, talent_df)
 
 
 def set_demo_question(question, talent_df):

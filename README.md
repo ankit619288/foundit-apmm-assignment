@@ -11,7 +11,7 @@ This project was built for the foundit APMM AI & Automation take-home assignment
 | Public Streamlit app | [foundit Talent Operations Assistant](https://foundit-apmm.streamlit.app/) | Reviewer-facing Task 1 agent, dashboards, and fRL preview |
 | GitHub repository | [foundit-apmm-assignment](https://github.com/ankit619288/foundit-apmm-assignment) | Source code, notes, workflow export, outputs, and evidence |
 | n8n workflow export | [`n8n/foundit_apmm_n8n_workflow.json`](n8n/foundit_apmm_n8n_workflow.json) | Importable 13-node automation workflow |
-| Hosted n8n export | [`n8n/foundit_apmm_n8n_workflow_hosted.json`](n8n/foundit_apmm_n8n_workflow_hosted.json) | Inactive-by-default workflow using server environment paths |
+| Hosted n8n export | [`n8n/foundit_apmm_n8n_workflow_hosted.json`](n8n/foundit_apmm_n8n_workflow_hosted.json) | Inactive-by-default workflow using isolated container paths |
 
 ### Current Status
 
@@ -20,7 +20,7 @@ This project was built for the foundit APMM AI & Automation take-home assignment
 | Task 1 micro agent | Complete | Public Streamlit app, system prompt, three required Q&As, and screenshots |
 | Task 2 fRL calculation | Complete | Validated Excel output and short method note |
 | Bonus `winner.py` analysis | Complete | Plain-English analysis and business insights in `notes/task3_bonus_analysis.md` |
-| Python automation | Complete | `python run_pipeline.py` validates inputs, runs both tasks, and checks deliverables |
+| Python automation | Complete | `python run_pipeline.py` validates inputs, runs both tasks, executes behavioral tests, and checks deliverables |
 | n8n local orchestration | Published and validated | Latest local workflow version includes manual and weekly triggers, Drive input/output, success/failure routing, and Gmail notifications |
 | Professional email templates | Included in export | Success and failure Gmail nodes use structured plain-text messages; live credentials remain local to n8n |
 | Public Streamlit demo | Live | Accessible through the link above |
@@ -39,6 +39,7 @@ Required files:          Passed
 Generated Excel:         outputs/fRL_winners.xlsx
 Screenshot evidence:     21 PNG files
 Pipeline result:         Completed
+Automated tests:         22 passed
 ```
 
 The assignment had three parts:
@@ -203,7 +204,9 @@ The assignment brief explains the three tasks, expected outputs, and fRL winner 
 This file contains India IT/ITeS talent-supply counts from the foundit profile database. The data includes:
 
 - Total profiles
-- Active profiles
+- All-time sourced and registered profiles
+- 12-month active, sourced, and registered profiles
+- 6-month active, sourced, and registered profiles
 - Experience bands
 - City-level profile counts
 - Role-level counts
@@ -269,6 +272,8 @@ The agent is not only displaying static data. It follows a tool-routing style:
 4. It retrieves the correct answer from the talent knowledge base.
 5. It refuses unsupported salary/CTC/notice-period questions instead of hallucinating.
 
+The parser supports all nine count measures present in the sheet. It also refuses unsupported cross-tab questions such as a role-by-city intersection because the source provides those categories separately, not as an intersected table.
+
 This makes the agent grounded, explainable, and safe for a sales or customer-success use case.
 
 ---
@@ -311,7 +316,7 @@ Rows are removed if any of the following are true:
 - `login` contains `scrape`, `_jobs`, or `ftp`
 - `service_channel` contains `scrape`
 - `company_name` contains `immigration`, `ankit sharma proprietor`, or `freelancer`
-- `pc_end_date` is before 20 February 2026
+- `pc_end_date` is before 20 February 2026 or is blank/invalid, because active status cannot be verified
 
 Old-winner exclusion was not applied because no old-winners file was provided in the assignment package.
 
@@ -441,7 +446,8 @@ This command:
 2. Runs the fRL winner calculation.
 3. Generates the polished fRL winners Excel.
 4. Runs the talent agent smoke test.
-5. Checks that required notes and outputs exist.
+5. Runs the behavioral and artifact integrity test suite.
+6. Checks workbook schema, notes, n8n exports, email mode, and screenshot evidence.
 
 ---
 
@@ -468,18 +474,16 @@ python run_pipeline.py
 
 That works well for a technical user, but a Sales Operations or Product Marketing user may not want to open VS Code, remember commands, or inspect terminal logs manually.
 
-With n8n, the same process becomes a workflow:
+With n8n, the same process becomes a workflow with two deliberate entry paths:
 
 ```text
-Manual Run / Weekly Scheduled Run
-    |
-Download Latest Purchase File from Google Drive
-    |
-Clear Old Purchase File locally
-    |
-Save Purchase Input locally
-    |
-Run APMM Pipeline
+Manual Run -----------------------------> Run APMM Pipeline
+
+Weekly Scheduled Run
+    -> Download Latest Purchase File from Google Drive
+    -> Clear Old Purchase File locally
+    -> Save Purchase Input locally
+    -> Run APMM Pipeline
     |
 IF status is Success
     |-- True  -> Success Summary -> Read Winners Excel -> Update Winners in Drive -> Send Success Email
@@ -490,8 +494,8 @@ IF status is Success
 
 The n8n workflow:
 
-1. Starts from either a manual trigger or a weekly scheduled trigger.
-2. Downloads the latest `purchase.xlsx` file from Google Drive.
+1. Starts from either a manual trigger or a weekly Monday 09:00 trigger.
+2. The scheduled path downloads the latest `purchase.xlsx` file from Google Drive; the manual path intentionally tests the current local input.
 3. Removes the previous local `data/purchase.xlsx` file so the new download can be written cleanly.
 4. Saves the downloaded file as the local input used by the Python pipeline.
 5. Runs the Python pipeline that generates the fRL winners Excel.
@@ -503,7 +507,13 @@ The n8n workflow:
 
 The `true` branch means the pipeline passed the success condition. In this project, that means the Python script ran, the output Excel file exists, and the workflow can mark the submission as ready.
 
-The `false` branch is included for review handling. If the pipeline fails or the final Excel is missing, the workflow returns a clear review-needed message and sends a failure alert instead of silently passing.
+The `false` branch handles validation failures returned by the Python runner. If the pipeline reports failure or the final Excel is missing, the workflow returns a clear review-needed message and sends a failure alert instead of silently passing.
+
+### Assignment Coverage And Production Gaps
+
+The assignment-facing workflow covers the full demonstrated path: manual run, weekly schedule, Drive input, local file handling, Python execution, IF routing, Drive output update, and professional success/failure email. A separate n8n Error Trigger workflow is not configured. Therefore, infrastructure failures that stop a node before the IF node, such as expired Drive credentials or a Gmail outage, appear in n8n Executions but do not send this workflow's failure email.
+
+Before production use, add a dedicated Error Trigger workflow, retry policies for Drive/Gmail, run-level idempotency, and atomic input replacement. These are production hardening items, not missing assignment requirements.
 
 ### Notification Design
 
@@ -520,7 +530,7 @@ This workflow uses the local Python project as the processing engine. For schedu
 
 ```powershell
 $env:NODE_FUNCTION_ALLOW_BUILTIN="child_process,fs,path"
-$env:N8N_BLOCK_ENV_ACCESS_IN_NODE="false"
+$env:N8N_BLOCK_ENV_ACCESS_IN_NODE="true"
 $env:N8N_RESTRICT_FILE_ACCESS_TO="C:\Users\India\OneDrive\Desktop\Foundit_APMM_Assignment"
 n8n
 ```
@@ -542,7 +552,7 @@ The exported JSON contains workflow structure and credential references, but it 
 9. Test the false branch with controlled test data and verify the failure notification.
 10. Publish the validated workflow so the weekly schedule uses the latest version.
 
-For a Linux/Docker host, import `n8n/foundit_apmm_n8n_workflow_hosted.json` instead. It reads project, Python, input, and output paths from the `APMM_*` variables in `deploy/n8n/compose.yaml` and imports as inactive until configuration is complete.
+For a Linux/Docker host, import `n8n/foundit_apmm_n8n_workflow_hosted.json` instead. It uses the fixed paths packaged by `deploy/n8n/Dockerfile`, blocks Code-node environment access, and imports as inactive until configuration is complete.
 
 ### Why The Current n8n URL Is Local Only
 
@@ -593,7 +603,7 @@ GENERIC_TIMEZONE=Asia/Kolkata
 ```text
 NODE_FUNCTION_ALLOW_BUILTIN=child_process,fs,path
 N8N_RESTRICT_FILE_ACCESS_TO=/opt/foundit-apmm
-N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+N8N_BLOCK_ENV_ACCESS_IN_NODE=true
 ```
 
 8. If external task runners are enabled, apply the Code-node module allow-list to the task-runner configuration, as described in the official [module configuration guide](https://docs.n8n.io/deploy/host-n8n/configure-n8n/basic-configuration/configuration-examples/enable-modules-in-code-node).
@@ -620,6 +630,7 @@ In a production setup, the same workflow could be extended further to:
 3. Add approval steps before replacing the final shared output.
 4. Add Slack or Teams alerts in addition to email.
 5. Store historical outputs for audit and comparison.
+6. Add a separate Error Trigger workflow, retries, and run-level idempotency.
 
 For this assignment, the n8n workflow is intentionally kept reviewable while still demonstrating end-to-end orchestration from file intake to output update and notification.
 
@@ -659,7 +670,7 @@ The repository is validated with:
 python run_pipeline.py
 ```
 
-The command checks required inputs, regenerates the fRL output, runs the Task 1 agent smoke test, and verifies the required notes, workflow export, and screenshots. Python source files are also syntax-checked before release.
+The command checks required inputs, syntax-checks Python, regenerates the fRL output, runs the Task 1 smoke test plus edge-case tests, and validates the workbook, notes, workflow exports, plain-text email mode, and screenshots.
 
 ### n8n Evidence Map
 
@@ -682,6 +693,7 @@ The success and failure routes are tested separately. A successful scheduled run
 - Old-winner exclusion, because no old-winners file was supplied
 - Salary or compensation answers, because the Task 1 source contains no compensation data
 - A hosted n8n runtime, because the current workflow depends on a local Python and filesystem runtime; the safe migration path is documented above
+- A separate workflow-level Error Trigger; the current false branch covers pipeline validation failures, while production node failures remain visible in n8n Executions
 
 ---
 
@@ -739,4 +751,3 @@ If this were converted into a production workflow, the next improvements would b
 ## Project Tagline
 
 AI-assisted talent supply lookup and recruiter-league winner automation for foundit-style Sales, CS, and Product Marketing workflows.
-

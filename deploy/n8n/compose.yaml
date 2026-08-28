@@ -23,12 +23,8 @@ services:
       GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Asia/Kolkata}
       TZ: ${GENERIC_TIMEZONE:-Asia/Kolkata}
       NODE_FUNCTION_ALLOW_BUILTIN: child_process,fs,path
-      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"
       N8N_RESTRICT_FILE_ACCESS_TO: /opt/foundit-apmm
-      APMM_PROJECT_DIR: /opt/foundit-apmm
-      APMM_PYTHON_EXE: /opt/apmm-venv/bin/python
-      APMM_PURCHASE_PATH: /opt/foundit-apmm/data/purchase.xlsx
-      APMM_WINNERS_PATH: /opt/foundit-apmm/outputs/fRL_winners.xlsx
     volumes:
       - n8n_data:/home/node/.n8n
     healthcheck:
