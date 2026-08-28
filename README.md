@@ -21,7 +21,7 @@ This project was built for the foundit APMM AI & Automation take-home assignment
 | Task 2 fRL calculation | Complete | Validated Excel output and short method note |
 | Bonus `winner.py` analysis | Complete | Plain-English analysis and business insights in `notes/task3_bonus_analysis.md` |
 | Python automation | Complete | `python run_pipeline.py` validates inputs, runs both tasks, and checks deliverables |
-| n8n local orchestration | Complete | Manual and weekly-trigger test runs, Drive input/output, success/failure routing, and Gmail notifications |
+| n8n local orchestration | Published and validated | Latest local workflow version includes manual and weekly triggers, Drive input/output, success/failure routing, and Gmail notifications |
 | Professional email templates | Included in export | Success and failure Gmail nodes use structured plain-text messages; live credentials remain local to n8n |
 | Public Streamlit demo | Live | Accessible through the link above |
 | Public n8n editor/runtime | Not deployed | The validated workflow currently runs on a local Windows n8n instance; see [Making n8n Public Safely](#making-n8n-public-safely) |
@@ -665,7 +665,7 @@ The command checks required inputs, regenerates the fRL output, runs the Task 1 
 
 | Evidence | File |
 |---|---|
-| Weekly scheduled end-to-end success route | `screenshots/n8n_full_workflow_success.png` |
+| Published weekly scheduled end-to-end success route | `screenshots/n8n_full_workflow_success.png` |
 | Manual success route | `screenshots/n8n_manual_success_route.png` |
 | Controlled failure route and failure-email node | `screenshots/n8n_failure_route_and_email.png` |
 | Weekly schedule configuration | `screenshots/n8n_weekly_schedule_settings.png` |
