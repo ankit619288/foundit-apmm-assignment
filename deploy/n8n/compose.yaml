@@ -1,0 +1,46 @@
+name: foundit-apmm
+
+services:
+  n8n:
+    build:
+      context: ../..
+      dockerfile: deploy/n8n/Dockerfile
+      args:
+        N8N_VERSION: ${N8N_VERSION:-2.21.7}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      N8N_HOST: ${N8N_HOST}
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: https
+      N8N_EDITOR_BASE_URL: https://${N8N_HOST}
+      N8N_WEBHOOK_URL: https://${N8N_HOST}/
+      N8N_PROXY_HOPS: "1"
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_RUNNERS_ENABLED: "true"
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Asia/Kolkata}
+      TZ: ${GENERIC_TIMEZONE:-Asia/Kolkata}
+      NODE_FUNCTION_ALLOW_BUILTIN: child_process,fs,path
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      N8N_RESTRICT_FILE_ACCESS_TO: /opt/foundit-apmm
+      APMM_PROJECT_DIR: /opt/foundit-apmm
+      APMM_PYTHON_EXE: /opt/apmm-venv/bin/python
+      APMM_PURCHASE_PATH: /opt/foundit-apmm/data/purchase.xlsx
+      APMM_WINNERS_PATH: /opt/foundit-apmm/outputs/fRL_winners.xlsx
+    volumes:
+      - n8n_data:/home/node/.n8n
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:5678/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  n8n_data:

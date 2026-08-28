@@ -4,6 +4,43 @@
 
 This project was built for the foundit APMM AI & Automation take-home assignment. It combines a micro talent-supply AI agent, an automated fRL winner calculation workflow, and a Streamlit dashboard that can be shared as a public demo.
 
+### Live Links
+
+| Resource | Link | Purpose |
+|---|---|---|
+| Public Streamlit app | [foundit Talent Operations Assistant](https://foundit-apmm.streamlit.app/) | Reviewer-facing Task 1 agent, dashboards, and fRL preview |
+| GitHub repository | [foundit-apmm-assignment](https://github.com/ankit619288/foundit-apmm-assignment) | Source code, notes, workflow export, outputs, and evidence |
+| n8n workflow export | [`n8n/foundit_apmm_n8n_workflow.json`](n8n/foundit_apmm_n8n_workflow.json) | Importable 13-node automation workflow |
+| Hosted n8n export | [`n8n/foundit_apmm_n8n_workflow_hosted.json`](n8n/foundit_apmm_n8n_workflow_hosted.json) | Inactive-by-default workflow using server environment paths |
+
+### Current Status
+
+| Area | Status | Evidence or note |
+|---|---|---|
+| Task 1 micro agent | Complete | Public Streamlit app, system prompt, three required Q&As, and screenshots |
+| Task 2 fRL calculation | Complete | Validated Excel output and short method note |
+| Bonus `winner.py` analysis | Complete | Plain-English analysis and business insights in `notes/task3_bonus_analysis.md` |
+| Python automation | Complete | `python run_pipeline.py` validates inputs, runs both tasks, and checks deliverables |
+| n8n local orchestration | Complete | Manual and weekly-trigger test runs, Drive input/output, success/failure routing, and Gmail notifications |
+| Professional email templates | Included in export | Success and failure Gmail nodes use structured plain-text messages; live credentials remain local to n8n |
+| Public Streamlit demo | Live | Accessible through the link above |
+| Public n8n editor/runtime | Not deployed | The validated workflow currently runs on a local Windows n8n instance; see [Making n8n Public Safely](#making-n8n-public-safely) |
+| Final submission email | User action | Attach the requested outputs and send them to the address in the assignment brief |
+
+### Latest Verified Run
+
+The full pipeline was rerun successfully on 28 August 2026:
+
+```text
+Original Purchase rows: 17,149
+Eligible rows:          13,153
+Removed rows:            3,996
+Required files:          Passed
+Generated Excel:         outputs/fRL_winners.xlsx
+Screenshot evidence:     21 PNG files
+Pipeline result:         Completed
+```
+
 The assignment had three parts:
 
 1. Build a micro AI agent on the provided India IT/ITeS talent data.
@@ -64,10 +101,12 @@ Streamlit app
     |
 n8n workflow
     |
-    |-- manual trigger
-    |-- run Python pipeline
-    |-- verify success or failure
-    |-- route to success/failure summary
+    |-- manual or weekly scheduled trigger
+    |-- download the latest Purchase file from Google Drive
+    |-- clear and replace the local Purchase input
+    |-- run and validate the Python pipeline
+    |-- update the existing Drive output on success
+    |-- send a professional success or failure email
 ```
 
 The result is a practical tool that reduces manual work and creates a repeatable submission package.
@@ -124,11 +163,32 @@ Foundit_APMM_Assignment/
 |
 |-- n8n/
 |   |-- foundit_apmm_n8n_workflow.json
+|   |-- foundit_apmm_n8n_workflow_hosted.json
+|
+|-- deploy/
+|   |-- n8n/
+|       |-- Dockerfile
+|       |-- compose.yaml
+|       |-- .env.example
+|       |-- README.md
 |
 |-- run_pipeline.py
 |-- requirements.txt
 |-- README.md
 ```
+
+---
+
+## Reviewer Guide - 5 Minute Walkthrough
+
+1. Open the [public Streamlit app](https://foundit-apmm.streamlit.app/) and test the three required Task 1 questions.
+2. Review `notes/task1_system_prompt.md` for the grounding and refusal rules.
+3. Open `outputs/fRL_winners.xlsx` and verify the six category winners and ten MVP rows.
+4. Read `notes/frl_method_note.md` for the short Task 2 method and anomaly note.
+5. Read `notes/task3_bonus_analysis.md` for the optional `winner.py` analysis.
+6. Open `n8n/foundit_apmm_n8n_workflow.json` or the screenshots listed in the evidence section to inspect the automation.
+
+The repository deliberately separates reviewer-facing evidence from credentials. Google Drive and Gmail OAuth credentials stay inside the local or hosted n8n credential store and are not included in the workflow JSON.
 
 ---
 
@@ -391,6 +451,9 @@ The project also includes an n8n workflow export:
 
 ```text
 n8n/foundit_apmm_n8n_workflow.json
+n8n/foundit_apmm_n8n_workflow_hosted.json
+deploy/n8n/Dockerfile
+deploy/n8n/compose.yaml
 ```
 
 This workflow demonstrates how the Python pipeline can be operationalized for a business user. Python remains the data-processing engine, while n8n acts as the orchestration layer.
@@ -408,43 +471,157 @@ That works well for a technical user, but a Sales Operations or Product Marketin
 With n8n, the same process becomes a workflow:
 
 ```text
-Manual Trigger
+Manual Run / Weekly Scheduled Run
+    |
+Download Latest Purchase File from Google Drive
+    |
+Clear Old Purchase File locally
+    |
+Save Purchase Input locally
     |
 Run APMM Pipeline
     |
 IF status is Success
-    |-- True  -> Success Summary
-    |-- False -> Failure Summary
+    |-- True  -> Success Summary -> Read Winners Excel -> Update Winners in Drive -> Send Success Email
+    |-- False -> Failure Summary -> Send Failure Email
 ```
 
 ### What n8n Does
 
 The n8n workflow:
 
-1. Starts from a manual trigger.
-2. Runs the Python pipeline that generates the fRL winners Excel.
-3. Checks whether the pipeline completed successfully.
-4. Confirms that `outputs/fRL_winners.xlsx` exists.
-5. Routes the result to a success summary or failure summary.
+1. Starts from either a manual trigger or a weekly scheduled trigger.
+2. Downloads the latest `purchase.xlsx` file from Google Drive.
+3. Removes the previous local `data/purchase.xlsx` file so the new download can be written cleanly.
+4. Saves the downloaded file as the local input used by the Python pipeline.
+5. Runs the Python pipeline that generates the fRL winners Excel.
+6. Checks whether the pipeline completed successfully.
+7. Confirms that `outputs/fRL_winners.xlsx` exists.
+8. Routes the result to a success or failure branch.
+9. Updates the existing `fRL_winners.xlsx` file in Google Drive.
+10. Sends a success email or failure alert email.
 
 The `true` branch means the pipeline passed the success condition. In this project, that means the Python script ran, the output Excel file exists, and the workflow can mark the submission as ready.
 
-The `false` branch is included for review handling. If the pipeline fails or the final Excel is missing, the workflow returns a clear review-needed message instead of silently passing.
+The `false` branch is included for review handling. If the pipeline fails or the final Excel is missing, the workflow returns a clear review-needed message and sends a failure alert instead of silently passing.
+
+### Notification Design
+
+Both Gmail nodes use structured plain-text messages for consistent rendering across email clients.
+
+- The success email confirms the input, output, Drive update, Streamlit link, and GitHub link.
+- The failure email reports the failed stage and validation message, then lists three recommended recovery actions.
+- Notification messages do not include credentials, raw execution logs, or source data attachments.
+- The exported workflow keeps the recipient visible for review; a production deployment should move it to configuration.
+
+### Local Runtime Note
+
+This workflow uses the local Python project as the processing engine. For scheduled execution from local n8n, the laptop and n8n server must be running. The local n8n server should be started with file and built-in module access restricted to this assignment folder:
+
+```powershell
+$env:NODE_FUNCTION_ALLOW_BUILTIN="child_process,fs,path"
+$env:N8N_BLOCK_ENV_ACCESS_IN_NODE="false"
+$env:N8N_RESTRICT_FILE_ACCESS_TO="C:\Users\India\OneDrive\Desktop\Foundit_APMM_Assignment"
+n8n
+```
+
+This setup is suitable for a local assignment demonstration. In a hosted production environment, the Python runner and credentials should be deployed with tighter infrastructure-level controls.
+
+### Import And Configure The Workflow
+
+The exported JSON contains workflow structure and credential references, but it does not contain OAuth secrets. To run it on another n8n instance:
+
+1. Import `n8n/foundit_apmm_n8n_workflow.json`.
+2. Create or select a Google Drive OAuth2 credential for the two Drive nodes.
+3. Create or select a Gmail OAuth2 credential for the success and failure email nodes.
+4. Confirm the source `purchase.xlsx` Drive file and destination `fRL_winners.xlsx` Drive file IDs.
+5. Confirm the notification recipient in both Gmail nodes.
+6. Update the three Windows paths if the project is stored in another folder.
+7. Start n8n with the restricted module and file-access environment variables shown above.
+8. Run once from `Weekly Scheduled Run` and verify the green success route.
+9. Test the false branch with controlled test data and verify the failure notification.
+10. Publish the validated workflow so the weekly schedule uses the latest version.
+
+For a Linux/Docker host, import `n8n/foundit_apmm_n8n_workflow_hosted.json` instead. It reads project, Python, input, and output paths from the `APMM_*` variables in `deploy/n8n/compose.yaml` and imports as inactive until configuration is complete.
+
+### Why The Current n8n URL Is Local Only
+
+`http://localhost:5678` resolves to the machine running n8n. It is not a public URL and other people cannot open it from the internet. The current workflow also uses:
+
+- A Windows-only project path
+- A local Python executable
+- Local file read/write nodes
+- `child_process`, `fs`, and `path` inside n8n Code nodes
+- Google OAuth credentials stored in the local n8n instance
+
+For those reasons, copying the workflow into n8n Cloud is not a drop-in deployment. The Python project must also run in the hosted environment, and all local paths must be replaced with server paths or a hosted pipeline API.
+
+### Making n8n Public Safely
+
+There are two different sharing goals:
+
+#### Goal A - Let A Reviewer Inspect The Work
+
+This is already covered without exposing the n8n editor:
+
+- Public Streamlit app for the working agent and dashboards
+- Public GitHub repository for source code and workflow JSON
+- Success, failure, schedule, Drive, and email screenshots in `screenshots/`
+
+This is the recommended assignment-review path. n8n workflow sharing is designed for users on the same n8n instance, not as an anonymous public read-only workflow link. See the official [workflow sharing documentation](https://docs.n8n.io/build/manage-workflows/share-with-others).
+
+#### Goal B - Let Other Authorized Users Run n8n
+
+The recommended production path is a protected self-hosted n8n instance using Docker on a VPS or cloud VM:
+
+1. Provision a Linux server, domain or subdomain, and HTTPS reverse proxy.
+2. Deploy n8n with Docker and persistent storage for `/home/node/.n8n`.
+3. Build the supplied `deploy/n8n/Dockerfile`, which packages the repository and Python dependencies with n8n.
+4. Replace Windows paths with server paths such as `/opt/foundit-apmm`.
+5. Set a permanent `N8N_ENCRYPTION_KEY` in the host secret manager. Never commit it.
+6. Set the public editor and webhook URLs:
+
+```text
+N8N_EDITOR_BASE_URL=https://n8n.example.com
+N8N_WEBHOOK_URL=https://n8n.example.com/
+N8N_PROXY_HOPS=1
+GENERIC_TIMEZONE=Asia/Kolkata
+```
+
+7. Allow only the modules and folder needed by this workflow:
+
+```text
+NODE_FUNCTION_ALLOW_BUILTIN=child_process,fs,path
+N8N_RESTRICT_FILE_ACCESS_TO=/opt/foundit-apmm
+N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+```
+
+8. If external task runners are enabled, apply the Code-node module allow-list to the task-runner configuration, as described in the official [module configuration guide](https://docs.n8n.io/deploy/host-n8n/configure-n8n/basic-configuration/configuration-examples/enable-modules-in-code-node).
+9. Add the hosted OAuth callback URL in Google Cloud, then recreate the Drive and Gmail credentials inside the hosted n8n instance.
+10. Import `n8n/foundit_apmm_n8n_workflow_hosted.json`, test, publish, and invite only authorized users. Do not expose the editor without authentication.
+
+Official references:
+
+- [n8n hosting options](https://docs.n8n.io/deploy/)
+- [Docker Compose hosting](https://docs.n8n.io/deploy/host-n8n/install-options/use-a-cloud-provider/use-docker-compose)
+- [Reverse-proxy webhook configuration](https://docs.n8n.io/deploy/host-n8n/configure-n8n/basic-configuration/configuration-examples/configure-webhook-urls-with-reverse-proxy)
+- [Workflow sharing and permissions](https://docs.n8n.io/build/manage-workflows/share-with-others)
+
+The hosted deployment is intentionally documented rather than silently exposing the local editor through a temporary tunnel. A temporary tunnel would still depend on the laptop remaining online and would expand access to a workflow that can read files, run Python, update Drive, and send email.
 
 ### Business Value
 
 The n8n layer is useful because it turns a code-based process into an operations workflow. A non-technical user can run the pipeline from a button and immediately see whether the output is ready or needs review.
 
-In a production setup, the same workflow could be extended to:
+In a production setup, the same workflow could be extended further to:
 
-1. Accept a new Purchase Excel file from a folder, form, email, or Drive upload.
-2. Run the winner calculation automatically.
-3. Store the generated Excel in a shared location.
-4. Notify stakeholders by email, Slack, or WhatsApp.
-5. Schedule the process weekly or monthly.
-6. Keep execution history for audit and debugging.
+1. Use a hosted runner instead of a local laptop.
+2. Move paths, Drive file IDs, and notification recipients into environment variables.
+3. Add approval steps before replacing the final shared output.
+4. Add Slack or Teams alerts in addition to email.
+5. Store historical outputs for audit and comparison.
 
-For this assignment, the n8n workflow is intentionally kept simple and reviewable. It proves the pipeline can be orchestrated end to end without adding unnecessary complexity.
+For this assignment, the n8n workflow is intentionally kept reviewable while still demonstrating end-to-end orchestration from file intake to output update and notification.
 
 ---
 
@@ -472,6 +649,42 @@ A preview of the fRL winners output with a download button for the Excel file.
 
 ---
 
+## Validation And Evidence
+
+### Automated Validation
+
+The repository is validated with:
+
+```powershell
+python run_pipeline.py
+```
+
+The command checks required inputs, regenerates the fRL output, runs the Task 1 agent smoke test, and verifies the required notes, workflow export, and screenshots. Python source files are also syntax-checked before release.
+
+### n8n Evidence Map
+
+| Evidence | File |
+|---|---|
+| Weekly scheduled end-to-end success route | `screenshots/n8n_full_workflow_success.png` |
+| Manual success route | `screenshots/n8n_manual_success_route.png` |
+| Controlled failure route and failure-email node | `screenshots/n8n_failure_route_and_email.png` |
+| Weekly schedule configuration | `screenshots/n8n_weekly_schedule_settings.png` |
+| Existing Drive output updated | `screenshots/n8n_drive_output_updated.png` |
+| Success email received | `screenshots/n8n_success_email_received.png` |
+| Failure email received | `screenshots/n8n_failure_email_received.png` |
+
+The success and failure routes are tested separately. A successful scheduled run downloads the latest input, replaces the local file, executes Python, updates Drive, and sends the success notification. A controlled false-branch test confirms that validation failures are routed to the review summary and failure notification instead of updating the final Drive output.
+
+### What Is Intentionally Not Included
+
+- OAuth client secrets, access tokens, refresh tokens, passwords, and the local n8n database
+- A public unauthenticated n8n editor
+- Old-winner exclusion, because no old-winners file was supplied
+- Salary or compensation answers, because the Task 1 source contains no compensation data
+- A hosted n8n runtime, because the current workflow depends on a local Python and filesystem runtime; the safe migration path is documented above
+
+---
+
 ## Final Outputs
 
 The key submission outputs are:
@@ -495,7 +708,7 @@ For the final email, the main attachments should be:
 5. `task3_bonus_analysis.md`
 6. `foundit_apmm_n8n_workflow.json` if an n8n workflow export is requested
 
-The Streamlit public link and GitHub repository link can be included in the email body.
+The Streamlit public link and GitHub repository link can be included in the email body. The hosted workflow export and Docker starter are operational extras and do not need to be attached unless the reviewer asks about deployment.
 
 ---
 
@@ -512,14 +725,14 @@ The Streamlit public link and GitHub repository link can be included in the emai
 
 If this were converted into a production workflow, the next improvements would be:
 
-1. Move paths and dates into a config file.
-2. Add an audit sheet showing exclusion counts by reason.
-3. Add old-winner file upload support.
-4. Add duplicate winner validation.
-5. Add richer agent routing for more complex sales questions.
-6. Add direct file intake and notification nodes to the n8n workflow.
-7. Schedule the workflow using n8n, Airflow, or Windows Task Scheduler.
-8. Automatically email the output to stakeholders after validation.
+1. Deploy the supplied Docker starter on a protected hosted environment and complete live infrastructure testing.
+2. Apply the hosted export's environment-variable strategy to the live local workflow and externalize Drive IDs, recipients, and dates.
+3. Add an audit sheet showing exclusion counts by reason and a versioned execution history.
+4. Add old-winner file intake when that source becomes available.
+5. Add explicit duplicate-winner and source-schema validation tests.
+6. Add richer agent routing for more complex sales and customer-success questions.
+7. Add an approval step before replacing the final shared Drive output.
+8. Add Slack or Teams notifications and centralized production logging.
 
 ---
 

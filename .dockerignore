@@ -1,0 +1,13 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+.n8n
+__pycache__
+*.pyc
+.pytest_cache
+.venv
+venv
+n8n-user-data
+work
