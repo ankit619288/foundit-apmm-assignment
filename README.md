@@ -732,6 +732,7 @@ The Streamlit public link and GitHub repository link can be included in the emai
 
 - No old-winners file was provided, so old-winner exclusion was not applied.
 - The Purchase file is the only required Task 2 source.
+- Equal usage values retain source order because the brief does not define a secondary tie-break. Seven eligible accounts share the JP top-30 cutoff value of 15, but both selected Posting Champion winners are unique and unaffected.
 - Salary, CTC, notice period, and offer benchmarking are not available in the talent data, so the agent refuses those questions.
 - The agent is intentionally grounded on the provided Excel data rather than external web data.
 - The deterministic parser favors safe refusals over guesses: an unfamiliar paraphrase may be declined, but an unsupported constraint is never intentionally ignored to produce a broader number.

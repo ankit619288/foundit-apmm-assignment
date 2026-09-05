@@ -219,14 +219,34 @@ def get_mvp_winners(df):
     return winners
 
 
-def save_method_note(cleaning_summary):
+def describe_category_cutoff_ties(df):
+    tie_details = []
+    for metric in ["PC", "OC", "JP"]:
+        ranked = df.sort_values(metric, ascending=False, kind="mergesort")
+        if len(ranked) < TOP_N_CATEGORY:
+            continue
+
+        cutoff = ranked.iloc[TOP_N_CATEGORY - 1][metric]
+        tied_accounts = int((ranked[metric] == cutoff).sum())
+        if tied_accounts > 1:
+            tie_details.append(
+                f"{metric}'s rank-{TOP_N_CATEGORY} cutoff is {cutoff:g} with "
+                f"{tied_accounts} tied eligible accounts"
+            )
+
+    if not tie_details:
+        return "No category top-30 cutoff ties were found"
+    return "; ".join(tie_details)
+
+
+def save_method_note(cleaning_summary, cutoff_tie_note):
     note = f"""# fRL Winner Calculation Method Note
 
 - Method: Python standardized text, dates, and PC/OC/JP values, then applied every supplied Purchase eligibility rule before ranking.
 - Cleaning: {cleaning_summary["original_rows"]:,} source rows became {cleaning_summary["eligible_rows"]:,} eligible rows; {cleaning_summary["removed_rows"]:,} rows were excluded.
 - Classification: New means a start date from 1 October 2025 through 31 January 2026; all other or blank start dates are Existing.
 - Winners: each PC/OC/JP category uses the overall top 30 and selects the highest New and Existing account; MVP requires all three metrics above zero and takes the top five per user type by PC + OC + JP.
-- Anomalies/assumptions: {cleaning_summary["missing_start_dates"]:,} start dates and {cleaning_summary["missing_end_dates"]:,} end dates are blank/invalid; blank starts count as Existing, while blank ends are ineligible because active status cannot be verified, matching the supplied `winner.py`. No old-winners list was provided.
+- Anomalies/assumptions: {cleaning_summary["missing_start_dates"]:,} start dates and {cleaning_summary["missing_end_dates"]:,} end dates are blank/invalid; blank starts count as Existing, while blank ends are ineligible because active status cannot be verified, matching the supplied `winner.py`. No old-winners list was provided. {cutoff_tie_note}; stable source order resolves tied values because no secondary business tie-break was supplied.
 """
     METHOD_NOTE_FILE.write_text(note, encoding="utf-8")
 
@@ -324,7 +344,7 @@ def main():
 
     final_df.to_excel(OUTPUT_FILE, index=False)
     polish_excel_file()
-    save_method_note(cleaning_summary)
+    save_method_note(cleaning_summary, describe_category_cutoff_ties(eligible_df))
 
     print("\nfRL winners generated successfully.")
     print(f"Output Excel: {OUTPUT_FILE}")

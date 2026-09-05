@@ -6,7 +6,7 @@ The supplied script automates the same decision process used in Task 2. It stand
 
 New covers start dates from 1 October 2025 through 31 January 2026; all other or blank starts are Existing. Category awards use one overall top-30 list per metric: PC for Search Smasher, OC for Campaign Captain, and JP for Posting Champion. The highest New and Existing accounts in each list win. MVP requires all three metrics above zero and selects the top five per user type by `PC + OC + JP`.
 
-This directly connects to Task 2: my solution applies the same rules to the supplied Purchase file, while adding schema checks, deterministic tie ordering, and a formatted reviewer-ready workbook.
+This directly connects to Task 2: my solution applies the same rules to the supplied Purchase file, while adding schema checks, stable source-order handling for ties, and a formatted reviewer-ready workbook.
 
 ## Data-Backed Insights
 
@@ -18,5 +18,5 @@ This directly connects to Task 2: my solution applies the same rules to the supp
 
 - Move hardcoded paths, dates, and thresholds into validated configuration.
 - Validate the schema and report invalid dates explicitly.
-- Define a stable tie-break rule for reproducible winners.
+- Define a business-approved secondary tie-break instead of relying on stable source order.
 - Add structured row-count logs and tests for boundaries, exclusions, top-30 logic, MVP eligibility, ties, and optional old-winner handling.

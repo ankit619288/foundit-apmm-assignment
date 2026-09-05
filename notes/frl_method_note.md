@@ -4,4 +4,4 @@
 - Cleaning: 17,149 source rows became 13,153 eligible rows; 3,996 rows were excluded.
 - Classification: New means a start date from 1 October 2025 through 31 January 2026; all other or blank start dates are Existing.
 - Winners: each PC/OC/JP category uses the overall top 30 and selects the highest New and Existing account; MVP requires all three metrics above zero and takes the top five per user type by PC + OC + JP.
-- Anomalies/assumptions: 409 start dates and 409 end dates are blank/invalid; blank starts count as Existing, while blank ends are ineligible because active status cannot be verified, matching the supplied `winner.py`. No old-winners list was provided.
+- Anomalies/assumptions: 409 start dates and 409 end dates are blank/invalid; blank starts count as Existing, while blank ends are ineligible because active status cannot be verified, matching the supplied `winner.py`. No old-winners list was provided. JP's rank-30 cutoff is 15 with 7 tied eligible accounts; stable source order resolves tied values because no secondary business tie-break was supplied.
