@@ -29,7 +29,7 @@ This project was built for the foundit APMM AI & Automation take-home assignment
 
 ### Latest Verified Run
 
-The full pipeline was rerun successfully on 28 August 2026:
+The full pipeline was rerun successfully on 5 September 2026:
 
 ```text
 Original Purchase rows: 17,149
@@ -39,7 +39,7 @@ Required files:          Passed
 Generated Excel:         outputs/fRL_winners.xlsx
 Screenshot evidence:     21 PNG files
 Pipeline result:         Completed
-Automated tests:         22 passed
+Automated tests:         40 passed
 ```
 
 The assignment had three parts:
@@ -243,7 +243,7 @@ This is the provided bonus script. It shows how the fRL winner logic can be auto
 
 The micro AI agent is built on top of `Sample_Data_for_agent.xlsx`.
 
-The agent answers questions using only the provided talent data. It does not invent values. If the requested information is not present in the dataset, it clearly says that the data is unavailable.
+The agent answers questions using only the provided talent data. It does not invent values. If any requested role, location, experience band, metric, time window, or other constraint is not present in the dataset, it declines the complete request instead of silently dropping that constraint and returning a broader count.
 
 Example supported questions:
 
@@ -272,7 +272,11 @@ The agent is not only displaying static data. It follows a tool-routing style:
 4. It retrieves the correct answer from the talent knowledge base.
 5. It refuses unsupported salary/CTC/notice-period questions instead of hallucinating.
 
-The parser supports all nine count measures present in the sheet. It also refuses unsupported cross-tab questions such as a role-by-city intersection because the source provides those categories separately, not as an intersected table.
+The parser supports all nine count measures present in the sheet, including flexible 6-month and 12-month overall paraphrases. It rejects unsupported calendar periods, asks for clarification when an active/sourced/registered scope is ambiguous, refuses unknown entities even when another known entity is present, and permits comparisons only within the same data dimension. It also refuses unsupported cross-tab or dimension-wide requests instead of replacing them with a broader India total.
+
+The loader validates the source structure before serving answers. The current workbook resolves to 53 unambiguous rows: 9 overall measures and 44 category rows. Every category row must contain all nine supplied metrics; missing sections, duplicate labels, incomplete metrics, or negative counts stop the load instead of producing a plausible-looking answer.
+
+Automated grounding coverage checks every one of the 44 category rows against all nine metrics (396 category-metric combinations). The regression suite also covers unknown roles and locations, unsupported time windows, ambiguous metrics, cross-tabs, mixed comparisons, dimension-level requests, unsupported statistics, and prompt-injection-style wording, with assertions that unsupported requests return no source count.
 
 This makes the agent grounded, explainable, and safe for a sales or customer-success use case.
 
@@ -730,6 +734,7 @@ The Streamlit public link and GitHub repository link can be included in the emai
 - The Purchase file is the only required Task 2 source.
 - Salary, CTC, notice period, and offer benchmarking are not available in the talent data, so the agent refuses those questions.
 - The agent is intentionally grounded on the provided Excel data rather than external web data.
+- The deterministic parser favors safe refusals over guesses: an unfamiliar paraphrase may be declined, but an unsupported constraint is never intentionally ignored to produce a broader number.
 
 ---
 

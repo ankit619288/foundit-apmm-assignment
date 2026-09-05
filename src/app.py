@@ -206,7 +206,11 @@ def render_frl_winners(frl_df):
         & frl_df["Service Channel"].astype(str).isin(selected_services)
     ].copy()
 
-    st.dataframe(filtered_df, width="stretch", hide_index=True)
+    display_df = filtered_df.copy()
+    display_df[["MVP Rank", "MVP Score"]] = display_df[
+        ["MVP Rank", "MVP Score"]
+    ].astype(str)
+    st.dataframe(display_df, width="stretch", hide_index=True)
 
     if FRL_FILE.exists():
         with open(FRL_FILE, "rb") as file:

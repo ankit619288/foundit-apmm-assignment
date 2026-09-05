@@ -27,6 +27,9 @@ CATEGORY_ALIASES = {
     "devops": "DevOps Engineer",
     "ai ml engineer": "AI/ML Engineer",
     "ai ml": "AI/ML Engineer",
+    "ai/ml engineers": "AI/ML Engineer",
+    "ai/ml engineer": "AI/ML Engineer",
+    "ai/ml": "AI/ML Engineer",
     "ml engineer": "AI/ML Engineer",
     "machine learning": "AI/ML Engineer",
     "ai engineer": "AI/ML Engineer",
@@ -38,7 +41,9 @@ CATEGORY_ALIASES = {
     "men": "Male",
     "cyber security": "Cybersecurity Analyst/Engineer",
     "cybersecurity": "Cybersecurity Analyst/Engineer",
+    "cloud architects": "Cloud Architect/Engineer",
     "cloud architect": "Cloud Architect/Engineer",
+    "cloud engineers": "Cloud Architect/Engineer",
     "cloud engineer": "Cloud Architect/Engineer",
     "bangalore": "Bengaluru",
     "chandigarh": "Chandigrah",
@@ -49,10 +54,196 @@ CATEGORY_ALIASES = {
     "1-3y": "1-3 Years",
     "1 to 3": "1-3 Years",
     "0-1y": "0-1 years",
+    "0-1 year": "0-1 years",
+    "0 to 1": "0-1 years",
+    "0 to 1 years": "0-1 years",
     "5-10y": "5-10Years",
+    "5-10 years": "5-10Years",
+    "5 to 10 years": "5-10Years",
     "10-15y": "10-15 Years",
+    "10 to 15": "10-15 Years",
+    "10 to 15 years": "10-15 Years",
     "15y+": "15 Years+",
     "15+ years": "15 Years+",
+    "15 years and above": "15 Years+",
+    "15 years or more": "15 Years+",
+}
+
+LOCATION_SECTIONS = {"Location", "Tier II City", "Tier III City"}
+
+QUERY_FILLER_TOKENS = {
+    "a",
+    "about",
+    "active",
+    "all",
+    "among",
+    "an",
+    "and",
+    "approximately",
+    "are",
+    "around",
+    "architect",
+    "architects",
+    "at",
+    "availability",
+    "available",
+    "based",
+    "be",
+    "between",
+    "bigger",
+    "by",
+    "can",
+    "candidate",
+    "candidates",
+    "categories",
+    "category",
+    "city",
+    "cities",
+    "compare",
+    "compared",
+    "comparison",
+    "count",
+    "counts",
+    "could",
+    "currently",
+    "data",
+    "database",
+    "dataset",
+    "developer",
+    "developers",
+    "did",
+    "difference",
+    "do",
+    "does",
+    "during",
+    "each",
+    "engineer",
+    "engineers",
+    "exact",
+    "exactly",
+    "experience",
+    "female",
+    "find",
+    "for",
+    "from",
+    "gender",
+    "give",
+    "greater",
+    "had",
+    "has",
+    "have",
+    "headcount",
+    "higher",
+    "how",
+    "i",
+    "in",
+    "india",
+    "indian",
+    "industry",
+    "is",
+    "it",
+    "it/ites",
+    "ites",
+    "large",
+    "larger",
+    "last",
+    "less",
+    "located",
+    "location",
+    "locations",
+    "lower",
+    "m",
+    "male",
+    "many",
+    "month",
+    "months",
+    "more",
+    "most",
+    "much",
+    "number",
+    "numbers",
+    "of",
+    "on",
+    "or",
+    "overall",
+    "over",
+    "past",
+    "please",
+    "pool",
+    "previous",
+    "profile",
+    "profiles",
+    "provide",
+    "provided",
+    "registered",
+    "reg",
+    "role",
+    "roles",
+    "scientist",
+    "scientists",
+    "show",
+    "should",
+    "six",
+    "size",
+    "smaller",
+    "sourced",
+    "sub",
+    "supply",
+    "s",
+    "talent",
+    "tell",
+    "than",
+    "that",
+    "the",
+    "there",
+    "time",
+    "to",
+    "total",
+    "twelve",
+    "using",
+    "versus",
+    "vs",
+    "was",
+    "we",
+    "were",
+    "what",
+    "which",
+    "with",
+    "within",
+    "work",
+    "working",
+    "would",
+    "you",
+}
+
+MONTH_WORDS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+}
+
+EXPERIENCE_REQUEST_PATTERN = re.compile(
+    r"(?<!\w)(?:\d+\s*(?:-|to)\s*\d+|\d+\+|\d+)\s*"
+    r"(?:years?|yrs?|y)(?!\w)"
+)
+
+DIMENSION_PATTERNS = {
+    "Location": re.compile(r"(?<!\w)(?:locations?|cities?|city)(?!\w)"),
+    "Role": re.compile(r"(?<!\w)roles?(?!\w)"),
+    "Gender": re.compile(r"(?<!\w)gender(?!\w)"),
+    "Experience": re.compile(r"(?<!\w)experience(?:\s+bands?)?(?!\w)"),
+    "Sub Industry": re.compile(
+        r"(?<!\w)(?:sub(?:-|\s*)industr(?:y|ies)|industr(?:y|ies))(?!\w)"
+    ),
 }
 
 UNAVAILABLE_KEYWORDS = [
@@ -181,7 +372,67 @@ def load_talent_data():
             }
         )
 
-    return pd.DataFrame(rows)
+    talent_df = pd.DataFrame(rows)
+    validate_talent_data(talent_df)
+    return talent_df
+
+
+def validate_talent_data(talent_df):
+    """Fail closed if the source workbook no longer matches its expected schema."""
+    if talent_df.empty:
+        raise ValueError("Talent dataset did not produce any usable rows.")
+
+    required_sections = {
+        "Overall",
+        "Gender",
+        "Experience",
+        "Location",
+        "Tier II City",
+        "Tier III City",
+        "Role",
+        "Sub Industry",
+    }
+    missing_sections = required_sections.difference(talent_df["Section"])
+    if missing_sections:
+        raise ValueError(
+            "Talent dataset is missing required sections: "
+            + ", ".join(sorted(missing_sections))
+        )
+
+    duplicate_categories = talent_df["Category Lower"].duplicated(keep=False)
+    if duplicate_categories.any():
+        duplicates = sorted(talent_df.loc[duplicate_categories, "Category"].unique())
+        raise ValueError(
+            "Talent dataset has ambiguous duplicate categories: "
+            + ", ".join(duplicates)
+        )
+
+    overall = talent_df[talent_df["Section"] == "Overall"]
+    overall_metrics = {
+        canonical_metric(category)
+        for category in overall["Category"]
+        if canonical_metric(category)
+    }
+    missing_overall_metrics = set(METRICS).difference(overall_metrics)
+    if missing_overall_metrics:
+        raise ValueError(
+            "Talent dataset is missing overall metrics: "
+            + ", ".join(sorted(missing_overall_metrics))
+        )
+
+    category_rows = talent_df[talent_df["Section"] != "Overall"]
+    missing_metric_values = category_rows[METRICS].isna().any(axis=1)
+    if missing_metric_values.any():
+        categories = sorted(
+            category_rows.loc[missing_metric_values, "Category"].unique()
+        )
+        raise ValueError(
+            "Talent dataset has incomplete metric rows for: "
+            + ", ".join(categories)
+        )
+
+    if (talent_df[METRICS].fillna(0) < 0).any().any():
+        raise ValueError("Talent dataset contains a negative profile count.")
 
 
 def load_talent_kb():
@@ -216,34 +467,110 @@ def metric_answer_label(metric):
     return labels[metric]
 
 
-def detect_metric(question):
+def detect_month_windows(question):
     q = normalize_text(question)
-    has_12m = bool(re.search(r"(?<!\w)(12m|12 months?|12-months?)(?!\w)", q))
-    has_6m = bool(re.search(r"(?<!\w)(6m|6 months?|6-months?)(?!\w)", q))
+    pattern = re.compile(
+        r"(?<!\w)(\d+|one|two|three|four|five|six|seven|eight|nine|ten|"
+        r"eleven|twelve)\s*-?\s*(?:m|months?|month)(?!\w)"
+    )
+    windows = []
+    for match in pattern.finditer(q):
+        raw_value = match.group(1)
+        windows.append(int(raw_value) if raw_value.isdigit() else MONTH_WORDS[raw_value])
+    return windows
 
-    if has_12m:
-        if "sourced" in q:
-            return "12M Sourced"
-        if "registered" in q or phrase_in_text("reg", q):
-            return "12M Registered"
-        return "12M Active Profiles"
 
-    if has_6m:
-        if "sourced" in q:
-            return "6M Sourced"
-        if "registered" in q or phrase_in_text("reg", q):
-            return "6M Registered"
-        return "6M Active Profiles"
+def detect_metric_request(question):
+    """Return a supported metric or a fail-closed explanation."""
+    q = normalize_text(question)
+    windows = detect_month_windows(q)
+    distinct_windows = set(windows)
 
-    if "all time sourced" in q or "all-time sourced" in q:
-        return "All Time Sourced"
-    if "all time registered" in q or "all-time registered" in q:
-        return "All Time Registered"
-    if "sourced" in q:
-        return "All Time Sourced"
-    if "registered" in q:
-        return "All Time Registered"
-    return "Total Profiles"
+    if any(window not in {6, 12} for window in distinct_windows):
+        return None, (
+            "The provided dataset does not include that time window. It only "
+            "contains 6-month and 12-month active, sourced, and registered cuts, "
+            "so I should not substitute a total-profile number."
+        )
+    if len(distinct_windows) > 1:
+        return None, (
+            "The question contains more than one time window. Please request "
+            "either the 6-month or the 12-month metric so I do not combine them."
+        )
+
+    unsupported_relative_time = re.search(
+        r"(?<!\w)(?:today|yesterday|ytd|mtd|qtd|last quarter|past quarter|"
+        r"previous quarter|last weeks?|past weeks?|previous weeks?|last months?|"
+        r"past months?|previous months?|last year|past year|previous year|"
+        r"this day|this week|this month|this quarter|this year|"
+        r"current day|current week|current month|current quarter|current year|"
+        r"over time|across time|by time)(?!\w)",
+        q,
+    ) or re.search(
+        r"(?<!\w)(?:last|past|previous|within)\s+"
+        r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)"
+        r"\s+(?:days?|weeks?|quarters?|years?)(?!\w)",
+        q,
+    )
+    if not distinct_windows:
+        unsupported_relative_time = unsupported_relative_time or re.search(
+            r"(?<!\w)(?:in|during|for|per|by)\s+(?:a\s+|the\s+)?"
+            r"months?(?!\w)",
+            q,
+        )
+    if unsupported_relative_time or re.search(r"(?<!\w)(?:19|20)\d{2}(?!\w)", q):
+        return None, (
+            "The provided dataset does not include that calendar period. It only "
+            "contains total, 6-month, and 12-month measures, so I cannot infer "
+            "a value for the requested period."
+        )
+
+    has_active = phrase_in_text("active", q)
+    has_sourced = phrase_in_text("sourced", q)
+    has_registered = phrase_in_text("registered", q) or phrase_in_text("reg", q)
+    qualifiers = [has_active, has_sourced, has_registered]
+    if sum(qualifiers) > 1:
+        return None, (
+            "Please request one measure at a time: active, sourced, or registered. "
+            "I should not choose between multiple requested measures."
+        )
+
+    if distinct_windows:
+        window = distinct_windows.pop()
+        if not any(qualifiers):
+            return None, (
+                f"The dataset has separate {window}-month active, sourced, and "
+                "registered counts. Please specify which measure you need."
+            )
+        suffix = (
+            "Active Profiles"
+            if has_active
+            else "Sourced"
+            if has_sourced
+            else "Registered"
+        )
+        return f"{window}M {suffix}", None
+
+    has_all_time = bool(re.search(r"(?<!\w)all(?:-| )time(?!\w)", q))
+    if has_active:
+        return None, (
+            "The dataset has both 6-month and 12-month active counts. Please "
+            "specify the required time window so I do not choose one arbitrarily."
+        )
+    if has_sourced or has_registered:
+        if not has_all_time:
+            return None, (
+                "The dataset has all-time, 6-month, and 12-month values for this "
+                "measure. Please specify the time window so I do not assume one."
+            )
+        return ("All Time Sourced" if has_sourced else "All Time Registered"), None
+
+    return "Total Profiles", None
+
+
+def detect_metric(question):
+    metric, _ = detect_metric_request(question)
+    return metric or "Total Profiles"
 
 
 def find_matches(question, talent_df):
@@ -268,6 +595,158 @@ def find_matches(question, talent_df):
     return list(matches.values())
 
 
+def unmatched_constraint_terms(question, talent_df):
+    """Find substantive query terms that the knowledge base did not recognize."""
+    residue = normalize_text(question)
+    residue = re.sub(
+        r"(?<!\w)(?:tell|show|give|provide)\s+me(?!\w)",
+        " ",
+        residue,
+    )
+    residue = re.sub(
+        r"(?<!\w)(?:6|12|six|twelve)\s*-?\s*(?:m|months?|month)(?!\w)",
+        " ",
+        residue,
+    )
+    recognized_phrases = set(talent_df["Category Lower"].dropna().tolist())
+    recognized_phrases.update(CATEGORY_ALIASES)
+
+    for phrase in sorted(recognized_phrases, key=len, reverse=True):
+        if phrase_in_text(phrase, residue):
+            residue = re.sub(
+                rf"(?<!\w){re.escape(normalize_text(phrase))}(?!\w)",
+                " ",
+                residue,
+            )
+
+    tokens = re.findall(r"[a-z0-9]+(?:/[a-z0-9]+)?", residue)
+    return sorted(
+        {
+            token
+            for token in tokens
+            if token not in QUERY_FILLER_TOKENS
+            and token not in {"6m", "12m"}
+        }
+    )
+
+
+def has_unmatched_experience(question, matches):
+    if not EXPERIENCE_REQUEST_PATTERN.search(normalize_text(question)):
+        return False
+    return not any(item["Section"] == "Experience" for item in matches)
+
+
+def comparison_dimension(section):
+    return "Location" if section in LOCATION_SECTIONS else section
+
+
+def requested_dimensions(question):
+    """Return data dimensions explicitly named in the question."""
+    q = normalize_text(question)
+    q = re.sub(r"(?<!\w)(?:it|ites|it/ites)\s+industry(?!\w)", " ", q)
+    return {
+        dimension
+        for dimension, pattern in DIMENSION_PATTERNS.items()
+        if pattern.search(q)
+    }
+
+
+def requests_generic_category_scope(question):
+    q = normalize_text(question)
+    return any(
+        re.search(pattern, q)
+        for pattern in [
+            r"(?<!\w)how many\s+categor(?:y|ies)(?!\w)",
+            r"(?<!\w)(?:each|every|all)\s+categor(?:y|ies)(?!\w)",
+            r"(?<!\w)(?:by|across|per)\s+categor(?:y|ies)(?!\w)",
+            r"(?<!\w)(?:category|categories)\s+(?:breakdown|distribution|split)(?!\w)",
+            r"(?<!\w)(?:breakdown|distribution|split)(?:\s+by)?\s+"
+            r"categor(?:y|ies)(?!\w)",
+        ]
+    )
+
+
+def requests_multi_category_scope(question):
+    q = normalize_text(question)
+    dimension_words = (
+        r"(?:locations?|cities?|roles?|gender|experience(?:\s+bands?)?|"
+        r"sub(?:-|\s*)industr(?:y|ies)|industr(?:y|ies))"
+    )
+    patterns = [
+        rf"(?<!\w)(?:each|every|all)\s+{dimension_words}(?!\w)",
+        rf"(?<!\w)all\s+(?:available\s+)?profiles\s+by\s+{dimension_words}(?!\w)",
+        rf"(?<!\w)list\s+(?:all\s+)?{dimension_words}(?!\w)",
+        rf"(?<!\w)(?:breakdown|distribution|split)(?:\s+by)?\s+{dimension_words}(?!\w)",
+    ]
+    return any(re.search(pattern, q) for pattern in patterns)
+
+
+def has_ambiguous_data_label(question):
+    q = normalize_text(question)
+    return bool(
+        re.search(
+            r"(?<!\w)data\s+(?:profiles?|talent|candidates?)(?!\w)",
+            q,
+        )
+    )
+
+
+def has_unresolved_work_scope(question, matches):
+    q = normalize_text(question)
+    has_work_language = bool(
+        re.search(r"(?<!\w)(?:work|working|located|based)(?!\w)", q)
+    )
+    if not has_work_language:
+        return False
+
+    if re.search(r"(?<!\w)based\s+on(?!\w)", q):
+        return False
+
+    dimensions = {
+        comparison_dimension(item["Section"])
+        for item in matches
+        if item["Section"] != "Overall"
+    }
+    has_india_scope = phrase_in_text("india", q) or phrase_in_text("indian", q)
+    return "Location" not in dimensions and not has_india_scope and len(dimensions) <= 1
+
+
+def has_unresolved_scope_language(question, matches, metric):
+    if matches or metric != "Total Profiles":
+        return False
+    q = normalize_text(question)
+    return bool(
+        re.search(
+            r"(?<!\w)(?:by|during|previous|past|last|between|among)(?!\w)",
+            q,
+        )
+    )
+
+
+def overall_metric_match(talent_df, metric):
+    overall = talent_df[talent_df["Section"] == "Overall"]
+    for _, item in overall.iterrows():
+        if canonical_metric(item["Category"]) == metric:
+            return item
+    return None
+
+
+def is_overall_request(question, metric):
+    q = normalize_text(question)
+    has_count_subject = any(
+        phrase_in_text(term, q)
+        for term in [
+            "profile",
+            "profiles",
+            "candidate",
+            "candidates",
+            "talent",
+            "headcount",
+        ]
+    )
+    return has_count_subject or metric != "Total Profiles" or phrase_in_text("total", q)
+
+
 def value_for_metric(item, metric):
     if item["Section"] == "Overall" and canonical_metric(item["Category"]) == metric:
         return item["Profiles"]
@@ -275,8 +754,8 @@ def value_for_metric(item, metric):
     return None if pd.isna(value) else float(value)
 
 
-def comparison_answer(question, talent_df, matches=None):
-    metric = detect_metric(question)
+def comparison_answer(question, talent_df, matches=None, metric=None):
+    metric = detect_metric(question) if metric is None else metric
     matches = find_matches(question, talent_df) if matches is None else matches
     matches = [item for item in matches if value_for_metric(item, metric) is not None]
     if len(matches) != 2:
@@ -318,6 +797,24 @@ def unavailable_answer():
     )
 
 
+def unsupported_constraint_answer():
+    return (
+        "The provided dataset does not include one or more requested categories "
+        "or constraints. I should not ignore an unsupported constraint or "
+        "substitute a broader India-wide count, so I cannot provide that number."
+    )
+
+
+def unsupported_dimension_answer():
+    return (
+        "The dataset contains separate aggregate cuts by role, location, "
+        "experience, gender, and sub-industry, but it does not provide every "
+        "breakdown or intersection. Please name one available category or two "
+        "categories from the same dimension; I should not substitute the overall "
+        "India count."
+    )
+
+
 def agent_answer(question, talent_df=None):
     talent_df = load_talent_data() if talent_df is None else talent_df
     q = normalize_text(question)
@@ -329,22 +826,73 @@ def agent_answer(question, talent_df=None):
             "answer from the available India IT/ITeS talent-supply counts."
         )
 
-    metric = detect_metric(q)
+    metric, metric_error = detect_metric_request(q)
+    if metric_error:
+        return metric_error
+
     matches = find_matches(q, talent_df)
     non_overall = [item for item in matches if item["Section"] != "Overall"]
     if non_overall:
         matches = non_overall
 
+    if has_unmatched_experience(q, matches):
+        return unsupported_constraint_answer()
+
+    if has_ambiguous_data_label(q):
+        return unsupported_constraint_answer()
+
+    if requests_multi_category_scope(q) or requests_generic_category_scope(q):
+        return unsupported_dimension_answer()
+
+    dimensions_requested = requested_dimensions(q)
+    matched_dimensions = {
+        comparison_dimension(item["Section"])
+        for item in matches
+        if item["Section"] != "Overall"
+    }
+    if dimensions_requested and not dimensions_requested.issubset(matched_dimensions):
+        return unsupported_dimension_answer()
+
+    if has_unresolved_work_scope(q, matches):
+        return unsupported_constraint_answer()
+
+    if has_unresolved_scope_language(q, matches, metric):
+        return unsupported_constraint_answer()
+
+    if unmatched_constraint_terms(q, talent_df):
+        return unsupported_constraint_answer()
+
     role_matches = [item for item in matches if item["Section"] == "Role"]
     if ROLE_HINT_PATTERN.search(q) and not role_matches:
-        return unavailable_answer()
+        return unsupported_constraint_answer()
 
     comparison_requested = any(
         phrase_in_text(word, q)
-        for word in ["compare", "larger", "more", "vs", "versus"]
+        for word in [
+            "bigger",
+            "compare",
+            "compared",
+            "difference",
+            "greater",
+            "higher",
+            "larger",
+            "less",
+            "more",
+            "most",
+            "smaller",
+            "vs",
+            "versus",
+        ]
     )
     if comparison_requested:
-        answer = comparison_answer(q, talent_df, matches)
+        dimensions = {comparison_dimension(item["Section"]) for item in matches}
+        if len(matches) == 2 and len(dimensions) != 1:
+            return (
+                "That comparison mixes different data dimensions. Please compare "
+                "two roles, two locations, two experience bands, two gender "
+                "categories, or two sub-industries so the result is meaningful."
+            )
+        answer = comparison_answer(q, talent_df, matches, metric=metric)
         if answer:
             return answer
         return (
@@ -362,13 +910,11 @@ def agent_answer(question, talent_df=None):
         )
 
     if not matches:
-        total = talent_df[talent_df["Category Lower"] == "total profiles"]
-        if "total" in q and not total.empty:
-            return (
-                f"Total India IT/ITeS profiles are "
-                f"{format_count(total.iloc[0]['Profiles'])} in the provided dataset."
-            )
-        return unavailable_answer()
+        overall_match = overall_metric_match(talent_df, metric)
+        if overall_match is not None and is_overall_request(q, metric):
+            matches = [overall_match]
+        else:
+            return unavailable_answer()
 
     match = matches[0]
     value = value_for_metric(match, metric)
