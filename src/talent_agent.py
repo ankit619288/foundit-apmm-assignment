@@ -26,20 +26,29 @@ CATEGORY_ALIASES = {
     "devops talent": "DevOps Engineer",
     "devops": "DevOps Engineer",
     "dev ops": "DevOps Engineer",
+    "ai talent": "AI/ML Engineer",
     "ai ml engineer": "AI/ML Engineer",
     "ai ml": "AI/ML Engineer",
     "ai/ml engineers": "AI/ML Engineer",
     "ai/ml engineer": "AI/ML Engineer",
     "ai/ml": "AI/ML Engineer",
+    "artificial intelligence": "AI/ML Engineer",
+    "machine-learning engineers": "AI/ML Engineer",
+    "machine-learning engineer": "AI/ML Engineer",
+    "machine learning engineers": "AI/ML Engineer",
     "ml engineer": "AI/ML Engineer",
+    "ml engineers": "AI/ML Engineer",
+    "ml talent": "AI/ML Engineer",
     "machine learning": "AI/ML Engineer",
     "ai engineer": "AI/ML Engineer",
     "artificial intelligence engineer": "AI/ML Engineer",
     "ml": "AI/ML Engineer",
     "data science": "Data Scientist",
     "data scientists": "Data Scientist",
+    "females": "Female",
     "women": "Female",
     "woman": "Female",
+    "males": "Male",
     "men": "Male",
     "cyber security": "Cybersecurity Analyst/Engineer",
     "cyber security analyst": "Cybersecurity Analyst/Engineer",
@@ -52,6 +61,8 @@ CATEGORY_ALIASES = {
     "cloud engineers": "Cloud Architect/Engineer",
     "cloud engineer": "Cloud Architect/Engineer",
     "cloud architect engineer": "Cloud Architect/Engineer",
+    "b'lore": "Bengaluru",
+    "blr": "Bengaluru",
     "bangalore": "Bengaluru",
     "banglore": "Bengaluru",
     "bombay": "Mumbai",
@@ -62,26 +73,43 @@ CATEGORY_ALIASES = {
     "ncr": "Delhi NCR",
     "baroda": "Vadodara",
     "bhubaneshwar": "Bhubaneswar",
+    "hyd": "Hyderabad",
     "nasik": "Nashik",
     "vizag": "Visakhapatnam",
     "3-5y": "3-5 Years",
+    "3-5 yrs": "3-5 Years",
     "3 to 5": "3-5 Years",
+    "3 to 5 yrs": "3-5 Years",
     "1-3y": "1-3 Years",
+    "1-3 yrs": "1-3 Years",
     "1 to 3": "1-3 Years",
+    "1 to 3 yrs": "1-3 Years",
     "0-1y": "0-1 years",
     "0-1 year": "0-1 years",
+    "0-1 yrs": "0-1 years",
     "0 to 1": "0-1 years",
+    "0 to 1 yrs": "0-1 years",
     "0 to 1 years": "0-1 years",
     "5-10y": "5-10Years",
+    "5-10 yrs": "5-10Years",
     "5-10 years": "5-10Years",
+    "5 to 10 yrs": "5-10Years",
     "5 to 10 years": "5-10Years",
     "10-15y": "10-15 Years",
+    "10-15 yrs": "10-15 Years",
     "10 to 15": "10-15 Years",
+    "10 to 15 yrs": "10-15 Years",
     "10 to 15 years": "10-15 Years",
     "15y+": "15 Years+",
+    "15 yrs+": "15 Years+",
+    "15+ yrs": "15 Years+",
     "15+ years": "15 Years+",
+    "15 plus years": "15 Years+",
+    "15 yrs and above": "15 Years+",
     "15 years and above": "15 Years+",
     "15 years or more": "15 Years+",
+    "information tech": "Information Technology",
+    "info services": "Information Services",
 }
 
 LOCATION_SECTIONS = {"Location", "Tier II City", "Tier III City"}
@@ -229,6 +257,7 @@ QUERY_FILLER_TOKENS = {
     "please",
     "pool",
     "position",
+    "prepare",
     "previous",
     "profile",
     "profiles",
@@ -776,15 +805,19 @@ def unmatched_constraint_terms(question, talent_df):
     for pattern in LOCATION_TIER_PATTERNS.values():
         residue = pattern.sub(" ", residue)
     residue = re.sub(
-        r"(?<!\w)(?:(?:for|as)\s+(?:a\s+|the\s+)?)?"
-        r"(?:sales|marketing|customer\s+success|client|business|recruiter)"
-        r"(?:\s+team)?\s+(?:conversation|insights?|meeting|overview|planning|"
-        r"presentation|report|reporting|use|view)(?!\w)",
+        r"(?<!\w)(?:(?:for|as)\s+(?:(?:a|an|the|my|our)\s+)?)?"
+        r"(?:sales|marketing|customer\s+success|client|business|recruiter|"
+        r"commercial|account|prospect|stakeholder|gtm|"
+        r"go(?:-|\s+)to(?:-|\s+)market)"
+        r"(?:\s+team)?\s+(?:brief|call|conversation|deck|discussion|insights?|"
+        r"meeting|overview|pitch(?:\s+deck)?|planning|presentation|proposal|"
+        r"report|reporting|review|use|view)(?!\w)",
         " ",
         residue,
     )
     residue = re.sub(
-        r"(?<!\w)(?:sales|marketing|client|customer\s+success|business)"
+        r"(?<!\w)(?:sales|marketing|client|customer\s+success|business|"
+        r"recruiter|commercial|prospect|stakeholder)"
         r"(?:-|\s+)ready(?!\w)",
         " ",
         residue,

@@ -271,7 +271,9 @@ The agent responds that salary/CTC/offer benchmarking data is not available in t
 The agent is not only displaying static data. It follows a tool-routing style:
 
 1. It receives a natural-language question.
-2. It normalizes the text and maps aliases such as `DevOps` to `DevOps Engineer`.
+2. It normalizes the text and maps unambiguous aliases such as `DevOps` to
+   `DevOps Engineer`, `females` to `Female`, `BLR` to `Bengaluru`, and
+   `3-5 yrs` to the supplied `3-5 Years` band.
 3. It routes the question to a lookup, comparison, ranking, classification,
    ratio, percentage-share, arithmetic-statistic, or refusal path.
 4. It retrieves the correct answer from the talent knowledge base.
@@ -287,7 +289,8 @@ breakdowns, classifications, full rankings, top/bottom N, maximum/minimum,
 category counts, arithmetic sums and means, same-dimension comparisons and
 ratios, and category shares of the matching overall India metric. Sales and
 Customer Success wrappers such as “market size,” “sales planning,” “talent
-landscape,” and “gender mix” route to those same validated calculations.
+landscape,” “gender mix,” “client pitch,” “sales deck,” and “account review”
+route to those same validated calculations.
 
 Unsupported calendar periods are rejected, ambiguous active/sourced/registered
 scope requests require clarification, and unknown entities are never discarded even
@@ -306,7 +309,7 @@ load instead of producing a plausible-looking answer.
 Automated grounding coverage checks every one of the 44 category rows against
 all nine metrics (396 category-metric combinations). It also exercises
 maximum/minimum and average/sum across every metric and source dimension. The
-55-test regression suite covers aliases, rankings, classifications, ratios,
+58-test regression suite covers aliases, rankings, classifications, ratios,
 percentage shares, unknown roles and locations, unsupported time windows,
 ambiguous metrics, cross-tabs, unsafe arithmetic, business inferences, and
 prompt-injection-style wording. Unsupported requests are asserted not to leak

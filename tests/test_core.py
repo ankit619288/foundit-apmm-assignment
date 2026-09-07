@@ -76,6 +76,66 @@ class TalentAgentTests(unittest.TestCase):
         )
         self.assertIn("Female has 1.90 Mn profiles", answer)
 
+    def test_safe_role_gender_location_and_experience_aliases(self):
+        cases = [
+            ("How many females are available?", "Female has 1.90 Mn profiles"),
+            ("How many males are available?", "Male has 4.45 Mn profiles"),
+            (
+                "What is the machine-learning engineer talent pool?",
+                "AI/ML Engineer has 995K profiles",
+            ),
+            ("Show AI talent supply in India", "AI/ML Engineer has 995K profiles"),
+            ("Give me the BLR talent pool", "Bengaluru has 3.20 Mn profiles"),
+            ("How many profiles are in B'lore?", "Bengaluru has 3.20 Mn profiles"),
+            ("Show HYD 12M active supply", "Hyderabad has 852K 12M active profiles"),
+            ("How many 3-5 yrs profiles are there?", "3-5 Years has 2.15 Mn profiles"),
+            ("How many 15 yrs+ profiles are available?", "15 Years+ has 2.89 Mn profiles"),
+            (
+                "Show information tech talent supply",
+                "Information Technology has 5.83 Mn profiles",
+            ),
+            (
+                "Show info services talent supply",
+                "Information Services has 3.72 Mn profiles",
+            ),
+        ]
+        for question, expected in cases:
+            with self.subTest(question=question):
+                self.assertIn(expected, agent_answer(question, self.talent_df))
+
+    def test_safe_sales_and_marketing_context_wrappers(self):
+        cases = [
+            (
+                "For a client pitch, show the top 3 roles by 12M active profiles",
+                "Top 3 roles by 12M active profiles",
+            ),
+            (
+                "For my sales deck, rank cities by total profiles",
+                "Location ranking by total profiles",
+            ),
+            (
+                "Prepare a prospect-ready gender mix",
+                "Gender breakdown by total profiles",
+            ),
+            (
+                "For an account review, compare Pune and Mumbai",
+                "Pune is larger than Mumbai",
+            ),
+        ]
+        for question, expected in cases:
+            with self.subTest(question=question):
+                self.assertIn(expected, agent_answer(question, self.talent_df))
+
+    def test_ambiguous_shortcuts_remain_unsupported(self):
+        for question in [
+            "How many cloud talent profiles are available?",
+            "How many IT services profiles are available?",
+            "How many senior profiles are available?",
+            "How many DS profiles are available?",
+        ]:
+            with self.subTest(question=question):
+                self.assertIn("does not include", agent_answer(question, self.talent_df))
+
     def test_common_city_spelling_is_supported(self):
         answer = agent_answer(
             "How many profiles are available in Chandigarh?",
