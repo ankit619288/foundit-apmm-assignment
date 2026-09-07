@@ -20,6 +20,7 @@ from src.talent_agent import (
     agent_answer,
     comparison_answer,
     format_count,
+    format_exact_count,
     load_talent_data,
 )
 
@@ -167,23 +168,355 @@ class TalentAgentTests(unittest.TestCase):
         )
         self.assertIn("137K profiles", answer)
 
-    def test_dimension_scope_never_falls_back_to_overall_total(self):
+    def test_top_five_roles_are_ranked_from_source_values(self):
+        answer = agent_answer("top 5 roles in india", self.talent_df)
+        expected = [
+            ("AI/ML Engineer", "995K"),
+            ("DevOps Engineer", "137K"),
+            ("Data Scientist", "116K"),
+            ("Cloud Architect/Engineer", "98,994"),
+            ("Cybersecurity Analyst/Engineer", "76,444"),
+        ]
+
+        self.assertIn("Top 5 roles by total profiles in India", answer)
+        positions = []
+        for category, value in expected:
+            self.assertIn(f"{category}: {value}", answer)
+            positions.append(answer.index(category))
+        self.assertEqual(positions, sorted(positions))
+
+    def test_rankings_support_metric_and_number_word_variants(self):
+        answer = agent_answer(
+            "Show the top three roles by 12M active profiles",
+            self.talent_df,
+        )
+        self.assertIn("Top 3 roles by 12M active profiles", answer)
+        self.assertIn("AI/ML Engineer: 605K", answer)
+        self.assertIn("DevOps Engineer: 73,829", answer)
+        self.assertIn("Data Scientist: 63,739", answer)
+        self.assertNotIn("Cloud Architect/Engineer", answer)
+
+        suffix_variant = agent_answer(
+            "Show the lowest three sub-industries by 6M sourced profiles",
+            self.talent_df,
+        )
+        self.assertIn("Bottom 3 sub-industries by 6M sourced profiles", suffix_variant)
+        self.assertIn("Cloud Data Services: 208K", suffix_variant)
+
+    def test_combined_extrema_and_range_report_both_source_values(self):
+        answer = agent_answer(
+            "Which roles have the maximum and minimum profiles?",
+            self.talent_df,
+        )
+        self.assertIn("AI/ML Engineer", answer)
+        self.assertIn("995,395 exact", answer)
+        self.assertIn("Cybersecurity Analyst/Engineer", answer)
+        self.assertIn("76,444", answer)
+        self.assertIn("918,951 exact", answer)
+
+        metric_answer = agent_answer(
+            "What is the range of 12M active profiles by role?",
+            self.talent_df,
+        )
+        self.assertIn("605,436 exact", metric_answer)
+        self.assertIn("46,805", metric_answer)
+
+    def test_maximum_and_minimum_are_grounded_for_every_metric_and_dimension(self):
+        dimension_sections = {
+            "role": {"Role"},
+            "city": {"Location", "Tier II City", "Tier III City"},
+            "gender": {"Gender"},
+            "experience band": {"Experience"},
+            "sub-industry": {"Sub Industry"},
+        }
+        metric_phrases = {
+            "Total Profiles": "total profiles",
+            "All Time Sourced": "all-time sourced profiles",
+            "All Time Registered": "all-time registered profiles",
+            "12M Active Profiles": "12M active profiles",
+            "12M Sourced": "12M sourced profiles",
+            "12M Registered": "12M registered profiles",
+            "6M Active Profiles": "6M active profiles",
+            "6M Sourced": "6M sourced profiles",
+            "6M Registered": "6M registered profiles",
+        }
+        for dimension, sections in dimension_sections.items():
+            rows = self.talent_df[self.talent_df["Section"].isin(sections)]
+            for metric, metric_phrase in metric_phrases.items():
+                expected_max = rows.sort_values(
+                    [metric, "Category Lower"],
+                    ascending=[False, True],
+                ).iloc[0]
+                expected_min = rows.sort_values(
+                    [metric, "Category Lower"],
+                    ascending=[True, True],
+                ).iloc[0]
+                with self.subTest(dimension=dimension, metric=metric, direction="max"):
+                    answer = agent_answer(
+                        f"Which {dimension} has the maximum {metric_phrase}?",
+                        self.talent_df,
+                    )
+                    self.assertIn(expected_max["Category"], answer)
+                    self.assertIn(format_count(expected_max[metric]), answer)
+                with self.subTest(dimension=dimension, metric=metric, direction="min"):
+                    answer = agent_answer(
+                        f"Which {dimension} has the minimum {metric_phrase}?",
+                        self.talent_df,
+                    )
+                    self.assertIn(expected_min["Category"], answer)
+                    self.assertIn(format_count(expected_min[metric]), answer)
+
+    def test_average_and_sum_state_exact_arithmetic_and_scope(self):
+        locations = self.talent_df[
+            self.talent_df["Section"].isin({"Location", "Tier II City", "Tier III City"})
+        ]
+        average_answer = agent_answer(
+            "What is the average profile count by city?",
+            self.talent_df,
+        )
+        self.assertIn(
+            format_exact_count(locations["Total Profiles"].mean()),
+            average_answer,
+        )
+        self.assertIn("not an average per candidate", average_answer)
+
+        roles = self.talent_df[self.talent_df["Section"] == "Role"]
+        sum_answer = agent_answer(
+            "What is the sum of all role profile counts?",
+            self.talent_df,
+        )
+        self.assertIn(format_exact_count(roles["Total Profiles"].sum()), sum_answer)
+        self.assertIn("not be presented as a deduplicated", sum_answer)
+
+    def test_average_and_sum_cover_every_metric_and_source_dimension(self):
+        dimensions = {
+            "role": {"Role"},
+            "city": {"Location", "Tier II City", "Tier III City"},
+            "gender": {"Gender"},
+            "experience band": {"Experience"},
+            "sub-industry": {"Sub Industry"},
+        }
+        metric_phrases = {
+            "Total Profiles": "total profiles",
+            "All Time Sourced": "all-time sourced profiles",
+            "All Time Registered": "all-time registered profiles",
+            "12M Active Profiles": "12M active profiles",
+            "12M Sourced": "12M sourced profiles",
+            "12M Registered": "12M registered profiles",
+            "6M Active Profiles": "6M active profiles",
+            "6M Sourced": "6M sourced profiles",
+            "6M Registered": "6M registered profiles",
+        }
+        for dimension, sections in dimensions.items():
+            rows = self.talent_df[self.talent_df["Section"].isin(sections)]
+            for metric, metric_phrase in metric_phrases.items():
+                with self.subTest(dimension=dimension, metric=metric, statistic="average"):
+                    answer = agent_answer(
+                        f"Average {metric_phrase} by {dimension}",
+                        self.talent_df,
+                    )
+                    self.assertIn(format_exact_count(rows[metric].mean()), answer)
+                with self.subTest(dimension=dimension, metric=metric, statistic="sum"):
+                    answer = agent_answer(
+                        f"Sum of all {dimension} {metric_phrase}",
+                        self.talent_df,
+                    )
+                    self.assertIn(format_exact_count(rows[metric].sum()), answer)
+
+    def test_named_and_ranked_subset_statistics_are_supported(self):
+        devops = self.talent_df[
+            self.talent_df["Category"] == "DevOps Engineer"
+        ].iloc[0]
+        data_scientist = self.talent_df[
+            self.talent_df["Category"] == "Data Scientist"
+        ].iloc[0]
+        expected_average = (
+            devops["Total Profiles"] + data_scientist["Total Profiles"]
+        ) / 2
+        answer = agent_answer(
+            "Average of DevOps and Data Scientist profile counts",
+            self.talent_df,
+        )
+        self.assertIn(format_exact_count(expected_average), answer)
+
+        top_roles = (
+            self.talent_df[self.talent_df["Section"] == "Role"]
+            .nlargest(3, "Total Profiles")
+        )
+        answer = agent_answer("Sum of top 3 roles", self.talent_df)
+        self.assertIn(format_exact_count(top_roles["Total Profiles"].sum()), answer)
+
+    def test_ratio_and_overall_share_use_explicit_denominators(self):
+        male = self.talent_df[self.talent_df["Category"] == "Male"].iloc[0]
+        female = self.talent_df[self.talent_df["Category"] == "Female"].iloc[0]
+        total = self.talent_df[
+            self.talent_df["Category"] == "Total Profiles"
+        ].iloc[0]
+
+        ratio_answer = agent_answer(
+            "What is the ratio of male to female profiles?",
+            self.talent_df,
+        )
+        self.assertIn(f"{male['Total Profiles'] / female['Total Profiles']:.2f}:1", ratio_answer)
+        self.assertIn("Male-to-Female", ratio_answer)
+
+        share_answer = agent_answer(
+            "What percentage of profiles are female?",
+            self.talent_df,
+        )
+        expected_share = female["Total Profiles"] / total["Profiles"] * 100
+        self.assertIn(f"{expected_share:.1f}%", share_answer)
+        self.assertIn("overall India", share_answer)
+
+        inferred_ratio = agent_answer(
+            "What is the gender ratio for 12M active profiles?",
+            self.talent_df,
+        )
+        male_active = male["12M Active Profiles"]
+        female_active = female["12M Active Profiles"]
+        self.assertIn(f"{male_active / female_active:.2f}:1", inferred_ratio)
+
+    def test_dimension_wide_percentage_shares_name_the_denominator(self):
+        answer = agent_answer(
+            "Show percentage share of 6M active profiles by role",
+            self.talent_df,
+        )
+        overall = self.talent_df[
+            self.talent_df["Category"] == "6M Active Profiles"
+        ].iloc[0]["Profiles"]
+        ai_ml = self.talent_df[
+            self.talent_df["Category"] == "AI/ML Engineer"
+        ].iloc[0]["6M Active Profiles"]
+        self.assertIn("Role shares of overall India 6M active profiles", answer)
+        self.assertIn(f"{ai_ml / overall * 100:.1f}%", answer)
+        self.assertIn("matching overall India metric as the denominator", answer)
+
+    def test_classification_rank_and_sales_wording_are_supported(self):
+        classification = agent_answer(
+            "Classify 12M active talent by gender for a sales report",
+            self.talent_df,
+        )
+        self.assertIn("Gender breakdown by 12M active profiles", classification)
+        self.assertIn("Female:", classification)
+        self.assertIn("Male:", classification)
+
+        rank = agent_answer(
+            "Where does Pune stand among cities by 12M active profiles?",
+            self.talent_df,
+        )
+        self.assertIn("Pune ranks", rank)
+        self.assertIn("out of 26 locations", rank)
+
+        full_ranking = agent_answer("Give me the role ranking", self.talent_df)
+        self.assertIn("Role ranking by total profiles", full_ranking)
+        self.assertLess(
+            full_ranking.index("AI/ML Engineer"),
+            full_ranking.index("DevOps Engineer"),
+        )
+
+        market_size = agent_answer(
+            "For client planning, what is the market size for DevOps talent?",
+            self.talent_df,
+        )
+        self.assertIn("DevOps Engineer has 137K profiles", market_size)
+
+    def test_location_tier_scopes_are_supported_without_merging_tiers(self):
+        top_tier_two = agent_answer(
+            "Top 3 Tier II cities by 12M active profiles",
+            self.talent_df,
+        )
+        self.assertIn("Top 3 Tier II cities", top_tier_two)
+        self.assertIn("Ahmedabad: 142K", top_tier_two)
+        self.assertNotIn("Bengaluru", top_tier_two)
+
+        tier_three_count = agent_answer(
+            "How many Tier III cities are covered?",
+            self.talent_df,
+        )
+        self.assertIn("8 Tier III cities", tier_three_count)
+
+        tier_rank = agent_answer(
+            "Where does Jaipur rank among Tier II cities?",
+            self.talent_df,
+        )
+        self.assertIn("4th out of 11 Tier II cities", tier_rank)
+
+        mixed = agent_answer("Compare Tier II and Tier III cities", self.talent_df)
+        self.assertIn("one at a time", mixed)
+
+    def test_business_outcomes_and_unsafe_arithmetic_are_declined(self):
         questions = [
-            "How many profiles by location?",
-            "Show total profiles by role",
-            "How many profiles by gender?",
-            "How many profiles for each experience category?",
-            "How many profiles by sub-industry?",
-            "How many AI/ML profiles are available by location?",
-            "How many profiles are there for each category in Pune?",
-            "How many categories are available in Pune?",
-            "Show all profiles by location, including Pune.",
-            "List all roles, including DevOps.",
+            "What is the demand for DevOps talent?",
+            "Forecast AI/ML talent for next year.",
+            "Which is the best city to target?",
+            "What is the growth in female profiles?",
+            "What is the average of Java and DevOps profiles?",
+            "Sum DevOps and Pune profiles.",
         ]
         for question in questions:
             with self.subTest(question=question):
                 answer = agent_answer(question, self.talent_df)
-                self.assertIn("does not provide every breakdown", answer)
+                self.assertTrue(
+                    "not demand" in answer
+                    or "should not infer" in answer
+                    or "does not include" in answer
+                    or "mixes different data dimensions" in answer
+                )
+
+    def test_single_dimension_breakdowns_use_exact_source_rows(self):
+        cases = [
+            ("How many profiles by gender?", "Gender breakdown", "Female"),
+            ("How many profiles for each experience category?", "Experience breakdown", "3-5 Years"),
+            ("How many profiles by sub-industry?", "Sub Industry breakdown", "Information Technology"),
+            ("Show all profiles by location, including Pune.", "Location breakdown", "Pune"),
+            ("List all roles, including DevOps.", "Role breakdown", "DevOps Engineer"),
+        ]
+        for question, heading, category in cases:
+            with self.subTest(question=question):
+                answer = agent_answer(question, self.talent_df)
+                row = self.talent_df[self.talent_df["Category"] == category].iloc[0]
+                self.assertIn(heading, answer)
+                self.assertIn(f"{category}: {format_count(row['Total Profiles'])}", answer)
+                self.assertNotIn("1.35 Cr", answer)
+
+    def test_aggregate_prompts_map_to_grounded_dimension_breakdowns(self):
+        cases = [
+            ("Generate an aggregate of roles", "Role breakdown", "AI/ML Engineer: 995K"),
+            ("Generate aggregate data for cities", "Location breakdown", "Bengaluru: 3.20 Mn"),
+            (
+                "Create an aggregate view of 12M active profiles by role",
+                "Role breakdown by 12M active profiles",
+                "AI/ML Engineer: 605K",
+            ),
+        ]
+        for question, heading, expected_row in cases:
+            with self.subTest(question=question):
+                answer = agent_answer(question, self.talent_df)
+                self.assertIn(heading, answer)
+                self.assertIn(expected_row, answer)
+
+    def test_overall_aggregate_prompt_uses_requested_source_metric(self):
+        answer = agent_answer(
+            "Generate an aggregate of 12M active profiles in India",
+            self.talent_df,
+        )
+        self.assertIn("6.81 Mn", answer)
+
+    def test_ranked_or_breakdown_cross_tabs_are_still_declined(self):
+        questions = [
+            "How many AI/ML profiles are available by location?",
+            "How many profiles are there for each category in Pune?",
+            "How many categories are available in Pune?",
+            "Show the top 5 roles in Pune.",
+            "Show the top 5 Java roles in India.",
+        ]
+        for question in questions:
+            with self.subTest(question=question):
+                answer = agent_answer(question, self.talent_df)
+                self.assertTrue(
+                    "does not provide every breakdown" in answer
+                    or "does not include" in answer
+                )
                 self.assertNotIn("1.35 Cr", answer)
                 self.assertNotIn("995K profiles", answer)
 
@@ -209,12 +542,13 @@ class TalentAgentTests(unittest.TestCase):
             "How many profiles have 7-9 years experience?",
             "How many profiles are aged under 30?",
             "How many graduate profiles are available?",
-            "How many profiles by location?",
-            "How many profiles by role?",
             "How many profiles for each category?",
-            "What percentage of profiles are female?",
-            "What is the ratio of male to female profiles?",
-            "What is the average profile count by city?",
+            "What percentage of profiles are female DevOps engineers?",
+            "What is the ratio of male to Pune profiles?",
+            "What is the average profile count?",
+            "How many sales profiles are available?",
+            "How many marketing profiles are available?",
+            "How many customer profiles are available?",
             "What is the growth in AI/ML profiles?",
             "Forecast AI/ML talent for next year.",
             "How many job openings exist for AI/ML?",

@@ -1,4 +1,6 @@
 from pathlib import Path
+import html
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -58,6 +60,7 @@ def render_css():
         background: #ffffff; color: #111827; border-left: 5px solid #2563eb;
         padding: 16px 18px; border-radius: 8px; border: 1px solid #e5e7eb;
         font-size: 16px; line-height: 1.6; font-weight: 500; margin-top: 14px;
+        white-space: pre-line;
     }
     .agent-note {
         background: #f8fafc; color: #111827; border: 1px solid #e5e7eb;
@@ -94,7 +97,11 @@ def render_agent_tab(talent_df):
             st.session_state.agent_response = agent_answer(question, talent_df)
 
         if st.session_state.agent_response:
-            st.markdown(f"<div class='answer-box'>{st.session_state.agent_response}</div>", unsafe_allow_html=True)
+            safe_response = html.escape(st.session_state.agent_response)
+            st.markdown(
+                f"<div class='answer-box'>{safe_response}</div>",
+                unsafe_allow_html=True,
+            )
 
         st.markdown("""
         <div class="agent-note">
@@ -108,8 +115,10 @@ def render_agent_tab(talent_df):
         demo_questions = [
             "How many AI/ML Engineer profiles are available in India?",
             "Which is larger - Data Scientist or DevOps talent, and by how much?",
-            "How many 3-5y profiles are available?",
-            "How many Pune profiles are available?",
+            "What are the top 5 roles in India?",
+            "Classify 12M active talent by gender.",
+            "What is the average profile count by city?",
+            "What percentage of profiles are female?",
             "What salary should I offer a DevOps engineer in Pune?",
         ]
 

@@ -17,7 +17,7 @@ This project was built for the foundit APMM AI & Automation take-home assignment
 
 | Area | Status | Evidence or note |
 |---|---|---|
-| Task 1 micro agent | Complete | Public Streamlit app, system prompt, three required Q&As, and screenshots |
+| Task 1 micro agent | Complete | Public Streamlit app, system prompt, required Q&As, and screenshots |
 | Task 2 fRL calculation | Complete | Validated Excel output and short method note |
 | Bonus `winner.py` analysis | Complete | Plain-English analysis and business insights in `notes/task3_bonus_analysis.md` |
 | Python automation | Complete | `python run_pipeline.py` validates inputs, runs both tasks, executes behavioral tests, and checks deliverables |
@@ -29,7 +29,8 @@ This project was built for the foundit APMM AI & Automation take-home assignment
 
 ### Latest Verified Run
 
-The full pipeline was rerun successfully on 5 September 2026:
+The full data pipeline was rerun successfully on 5 September 2026. The expanded
+grounding and artifact regression suite was rerun on 7 September 2026:
 
 ```text
 Original Purchase rows: 17,149
@@ -39,7 +40,7 @@ Required files:          Passed
 Generated Excel:         outputs/fRL_winners.xlsx
 Screenshot evidence:     21 PNG files
 Pipeline result:         Completed
-Automated tests:         40 passed
+Automated tests:         55 passed
 ```
 
 The assignment had three parts:
@@ -182,7 +183,7 @@ Foundit_APMM_Assignment/
 
 ## Reviewer Guide - 5 Minute Walkthrough
 
-1. Open the [public Streamlit app](https://foundit-apmm.streamlit.app/) and test the three required Task 1 questions.
+1. Open the [public Streamlit app](https://foundit-apmm.streamlit.app/) and test the required and analytical Task 1 questions.
 2. Review `notes/task1_system_prompt.md` for the grounding and refusal rules.
 3. Open `outputs/fRL_winners.xlsx` and verify the six category winners and ten MVP rows.
 4. Read `notes/frl_method_note.md` for the short Task 2 method and anomaly note.
@@ -250,8 +251,11 @@ Example supported questions:
 ```text
 How many AI/ML Engineer profiles are available in India?
 Which is larger - Data Scientist or DevOps talent, and by how much?
-How many 3-5y profiles are available?
-How many Pune profiles are available?
+What are the top 5 roles in India?
+Classify 12M active talent by gender.
+What is the average profile count by city?
+What percentage of profiles are female?
+For sales planning, which cities have the highest 12M active supply?
 ```
 
 Example unsupported question:
@@ -268,15 +272,51 @@ The agent is not only displaying static data. It follows a tool-routing style:
 
 1. It receives a natural-language question.
 2. It normalizes the text and maps aliases such as `DevOps` to `DevOps Engineer`.
-3. It decides whether the question is a lookup, comparison, total count, or unsupported request.
+3. It routes the question to a lookup, comparison, ranking, classification,
+   ratio, percentage-share, arithmetic-statistic, or refusal path.
 4. It retrieves the correct answer from the talent knowledge base.
-5. It refuses unsupported salary/CTC/notice-period questions instead of hallucinating.
+5. It validates every explicit metric, dimension, entity, and time window before
+   returning a number.
+6. It refuses unsupported salary, demand, forecast, recommendation, and
+   cross-tab questions instead of hallucinating.
 
-The parser supports all nine count measures present in the sheet, including flexible 6-month and 12-month overall paraphrases. It rejects unsupported calendar periods, asks for clarification when an active/sourced/registered scope is ambiguous, refuses unknown entities even when another known entity is present, and permits comparisons only within the same data dimension. It also refuses unsupported cross-tab or dimension-wide requests instead of replacing them with a broader India total.
+The parser supports all nine count measures present in the sheet, including
+flexible 6-month and 12-month overall paraphrases. For each supplied dimension
+(role, location, experience, gender, and sub-industry), it supports exact
+breakdowns, classifications, full rankings, top/bottom N, maximum/minimum,
+category counts, arithmetic sums and means, same-dimension comparisons and
+ratios, and category shares of the matching overall India metric. Sales and
+Customer Success wrappers such as “market size,” “sales planning,” “talent
+landscape,” and “gender mix” route to those same validated calculations.
 
-The loader validates the source structure before serving answers. The current workbook resolves to 53 unambiguous rows: 9 overall measures and 44 category rows. Every category row must contain all nine supplied metrics; missing sections, duplicate labels, incomplete metrics, or negative counts stop the load instead of producing a plausible-looking answer.
+Unsupported calendar periods are rejected, ambiguous active/sourced/registered
+scope requests require clarification, and unknown entities are never discarded even
+when another known entity is present. Comparisons, ratios, sums, and averages
+must remain within one dimension. Role-by-city, role-by-gender, and other absent
+cross-tabs are declined instead of being replaced with a broader India total.
+Business outcomes such as demand, growth, forecasts, conversion, and the “best”
+target are not inferred from supply counts.
 
-Automated grounding coverage checks every one of the 44 category rows against all nine metrics (396 category-metric combinations). The regression suite also covers unknown roles and locations, unsupported time windows, ambiguous metrics, cross-tabs, mixed comparisons, dimension-level requests, unsupported statistics, and prompt-injection-style wording, with assertions that unsupported requests return no source count.
+The loader validates the source structure before serving answers. The current
+workbook resolves to 53 unambiguous rows: 9 overall measures and 44 category
+rows. Every category row must contain all nine supplied metrics; missing
+sections, duplicate labels, incomplete metrics, or negative counts stop the
+load instead of producing a plausible-looking answer.
+
+Automated grounding coverage checks every one of the 44 category rows against
+all nine metrics (396 category-metric combinations). It also exercises
+maximum/minimum and average/sum across every metric and source dimension. The
+55-test regression suite covers aliases, rankings, classifications, ratios,
+percentage shares, unknown roles and locations, unsupported time windows,
+ambiguous metrics, cross-tabs, unsafe arithmetic, business inferences, and
+prompt-injection-style wording. Unsupported requests are asserted not to leak
+an unrelated source count.
+
+Arithmetic results are deliberately transparent. A sum is labeled as the sum
+of aggregate category rows, not a deduplicated population total, because the
+workbook does not define overlap. An average is labeled as a mean of
+category-level counts, not an average per candidate. Percentage answers name
+their overall India denominator.
 
 This makes the agent grounded, explainable, and safe for a sales or customer-success use case.
 
@@ -652,7 +692,9 @@ It contains three tabs:
 
 ### 1. Talent Agent
 
-A question-answer interface for India IT/ITeS talent-supply questions.
+A question-answer interface for grounded India IT/ITeS talent-supply lookup,
+classification, ranking, comparison, ratio, percentage-share, sum, and average
+questions. Multi-line analytical answers retain their ranking layout in the UI.
 
 ### 2. Talent Dashboard
 
@@ -735,7 +777,15 @@ The Streamlit public link and GitHub repository link can be included in the emai
 - Equal usage values retain source order because the brief does not define a secondary tie-break. Seven eligible accounts share the JP top-30 cutoff value of 15, but both selected Posting Champion winners are unique and unaffected.
 - Salary, CTC, notice period, and offer benchmarking are not available in the talent data, so the agent refuses those questions.
 - The agent is intentionally grounded on the provided Excel data rather than external web data.
-- The deterministic parser favors safe refusals over guesses: an unfamiliar paraphrase may be declined, but an unsupported constraint is never intentionally ignored to produce a broader number.
+- The deterministic parser favors safe refusals over guesses. Supported
+  operations and business phrasings are broad, but an unfamiliar paraphrase may
+  still be declined; an unsupported constraint is never intentionally ignored
+  to produce a broader number.
+- Arithmetic sums across category rows are not treated as unique-profile totals
+  unless the source explicitly establishes mutually exclusive categories.
+- The prototype loads the supplied aggregate workbook in memory. For millions
+  of raw records, the storage layer should move to Parquet/DuckDB or a managed
+  database while retaining the same validated answer rules.
 
 ---
 
@@ -747,8 +797,10 @@ If this were converted into a production workflow, the next improvements would b
 2. Apply the hosted export's environment-variable strategy to the live local workflow and externalize Drive IDs, recipients, and dates.
 3. Add an audit sheet showing exclusion counts by reason and a versioned execution history.
 4. Add old-winner file intake when that source becomes available.
-5. Add explicit duplicate-winner and source-schema validation tests.
-6. Add richer agent routing for more complex sales and customer-success questions.
+5. Add versioned fixtures for additional source schemas and more tie-policy stress tests.
+6. Add an optional language-model interpretation layer for unfamiliar
+   paraphrases while retaining deterministic Python tools as the only authority
+   for numbers.
 7. Add an approval step before replacing the final shared Drive output.
 8. Add Slack or Teams notifications and centralized production logging.
 

@@ -15,3 +15,4 @@ n8n-user-data/
 *.zip
 outputs/*status*.txt
 outputs/*checklist*.txt
+output/pdf/
